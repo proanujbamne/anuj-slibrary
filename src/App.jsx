@@ -37,6 +37,20 @@ const StudyLibraryManagementSystem = () => {
     method: 'Cash',
     notes: ''
   });
+  const [timingForm, setTimingForm] = useState({
+    fullTimeStart: '09:00',
+    fullTimeEnd: '21:00',
+    halfTimeStart: '09:00',
+    halfTimeEnd: '14:00'
+  });
+  const [showTimingModal, setShowTimingModal] = useState(false);
+  const [showStudentTimingModal, setShowStudentTimingModal] = useState(false);
+  const [selectedStudentForTiming, setSelectedStudentForTiming] = useState(null);
+  const [studentTimingForm, setStudentTimingForm] = useState({
+    customStartTime: '',
+    customEndTime: '',
+    useCustomTiming: false
+  });
   const [formErrors, setFormErrors] = useState({});
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
@@ -57,7 +71,10 @@ const StudyLibraryManagementSystem = () => {
     planType: 'half-time',
     feesPaid: false,
     seatNumber: '',
-    paymentMethod: 'Cash'
+    paymentMethod: 'Cash',
+    useCustomTiming: false,
+    customStartTime: '',
+    customEndTime: ''
   });
 
   // Show notification
@@ -75,7 +92,10 @@ const StudyLibraryManagementSystem = () => {
       planType: 'half-time',
       feesPaid: false,
       seatNumber: '',
-      paymentMethod: 'Cash'
+      paymentMethod: 'Cash',
+      useCustomTiming: false,
+      customStartTime: '',
+      customEndTime: ''
     });
     setEditingStudent(null);
     setFormErrors({});
@@ -155,7 +175,11 @@ const StudyLibraryManagementSystem = () => {
 
     try {
       const feeAmount = studentForm.planType === 'full-time' ? 800 : 500;
-      const studyHours = studentForm.planType === 'full-time' ? '9 AM - 9 PM' : '9 AM - 2 PM';
+      const studyHours = studentForm.useCustomTiming && studentForm.customStartTime && studentForm.customEndTime
+        ? `${studentForm.customStartTime} - ${studentForm.customEndTime}`
+        : studentForm.planType === 'full-time' 
+          ? `${timingForm.fullTimeStart} - ${timingForm.fullTimeEnd}` 
+          : `${timingForm.halfTimeStart} - ${timingForm.halfTimeEnd}`;
       const currentDate = new Date().toISOString().split('T')[0];
       
       if (editingStudent) {
@@ -171,6 +195,9 @@ const StudyLibraryManagementSystem = () => {
           feeAmount,
           studyHours,
           feesPaid: studentForm.feesPaid,
+          useCustomTiming: studentForm.useCustomTiming,
+          customStartTime: studentForm.customStartTime,
+          customEndTime: studentForm.customEndTime,
           lastFeeDate: studentForm.feesPaid && !editingStudent.feesPaid ? currentDate : editingStudent.lastFeeDate,
           paymentHistory: studentForm.feesPaid && !editingStudent.feesPaid ? [
             ...editingStudent.paymentHistory,
@@ -220,6 +247,9 @@ const StudyLibraryManagementSystem = () => {
           studyHours,
           status: 'Active',
           feesPaid: studentForm.feesPaid,
+          useCustomTiming: studentForm.useCustomTiming,
+          customStartTime: studentForm.customStartTime,
+          customEndTime: studentForm.customEndTime,
           paymentHistory: studentForm.feesPaid ? [{
             id: 1,
             date: currentDate,
@@ -267,7 +297,10 @@ const StudyLibraryManagementSystem = () => {
       planType: student.planType,
       feesPaid: student.feesPaid,
       seatNumber: student.seatNumber,
-      paymentMethod: 'Cash'
+      paymentMethod: 'Cash',
+      useCustomTiming: student.useCustomTiming || false,
+      customStartTime: student.customStartTime || '',
+      customEndTime: student.customEndTime || ''
     });
     setShowModal(true);
   };
@@ -377,6 +410,118 @@ const StudyLibraryManagementSystem = () => {
     addPayment(selectedStudent.id, parseFloat(paymentForm.amount), paymentForm.method, paymentForm.notes);
     setShowPaymentModal(false);
     setPaymentForm({ amount: '', method: 'Cash', notes: '' });
+  };
+
+  const handleTimingSubmit = (e) => {
+    e.preventDefault();
+    
+    // Validate timing
+    if (timingForm.fullTimeStart >= timingForm.fullTimeEnd) {
+      showNotification('Full-time start time must be before end time', 'error');
+      return;
+    }
+    
+    if (timingForm.halfTimeStart >= timingForm.halfTimeEnd) {
+      showNotification('Half-time start time must be before end time', 'error');
+      return;
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('library_timings', JSON.stringify(timingForm));
+    
+    showNotification('Study timings updated successfully!', 'success');
+    setShowTimingModal(false);
+  };
+
+  const loadTimings = () => {
+    const savedTimings = localStorage.getItem('library_timings');
+    if (savedTimings) {
+      setTimingForm(JSON.parse(savedTimings));
+    }
+  };
+
+  const openStudentTimingModal = (student) => {
+    setSelectedStudentForTiming(student);
+    setStudentTimingForm({
+      customStartTime: student.customStartTime || '',
+      customEndTime: student.customEndTime || '',
+      useCustomTiming: student.useCustomTiming || false
+    });
+    setShowStudentTimingModal(true);
+  };
+
+  const handleStudentTimingSubmit = (e) => {
+    e.preventDefault();
+    
+    if (studentTimingForm.useCustomTiming) {
+      if (!studentTimingForm.customStartTime || !studentTimingForm.customEndTime) {
+        showNotification('Please set both start and end times for custom timing', 'error');
+        return;
+      }
+      
+      if (studentTimingForm.customStartTime >= studentTimingForm.customEndTime) {
+        showNotification('Start time must be before end time', 'error');
+        return;
+      }
+    }
+    
+    // Update student with custom timing
+    const updatedStudent = {
+      ...selectedStudentForTiming,
+      customStartTime: studentTimingForm.customStartTime,
+      customEndTime: studentTimingForm.customEndTime,
+      useCustomTiming: studentTimingForm.useCustomTiming
+    };
+    
+    // Update in database
+    dbUpdateStudent(updatedStudent);
+    
+    // Update local state
+    setStudents(prev => prev.map(s => 
+      s.id === updatedStudent.id ? updatedStudent : s
+    ));
+    
+    showNotification('Student timing updated successfully!', 'success');
+    setShowStudentTimingModal(false);
+  };
+
+  const getStudentDisplayTiming = (student) => {
+    if (student.useCustomTiming && student.customStartTime && student.customEndTime) {
+      return `${convertTo12Hour(student.customStartTime)} - ${convertTo12Hour(student.customEndTime)} (Custom)`;
+    }
+    
+    if (student.planType === 'full-time') {
+      return `${convertTo12Hour(timingForm.fullTimeStart)} - ${convertTo12Hour(timingForm.fullTimeEnd)}`;
+    } else {
+      return `${convertTo12Hour(timingForm.halfTimeStart)} - ${convertTo12Hour(timingForm.halfTimeEnd)}`;
+    }
+  };
+
+  const convertTo12Hour = (time24) => {
+    if (!time24) return '';
+    
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  const convertTo24Hour = (time12) => {
+    if (!time12) return '';
+    
+    const [time, period] = time12.split(' ');
+    let [hours, minutes] = time.split(':');
+    let hour = parseInt(hours);
+    
+    if (period === 'PM' && hour !== 12) {
+      hour += 12;
+    } else if (period === 'AM' && hour === 12) {
+      hour = 0;
+    }
+    
+    return `${hour.toString().padStart(2, '0')}:${minutes}`;
   };
 
   const filteredStudents = students.filter(student =>
@@ -613,6 +758,7 @@ ORDER BY month DESC;`;
               >
                 SQL Schema
               </button>
+              {/* Timing settings nav removed (keep SQL only) */}
             </nav>
           </div>
         </div>
@@ -656,15 +802,13 @@ ORDER BY month DESC;`;
                 </div>
               </div>
 
-
-
               <div className="bg-white overflow-hidden shadow rounded-lg">
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <AlertCircle className="h-6 w-6 text-red-400" />
                     </div>
-                    <div className="ml-5 w-0 flex-1">
+                    <div className="ml-0 flex-1">
                       <dl>
                         <dt className="text-sm font-medium text-gray-500 truncate">Pending Fees</dt>
                         <dd className="text-lg font-medium text-gray-900">{stats.feesPending}</dd>
@@ -679,14 +823,23 @@ ORDER BY month DESC;`;
             <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
               <div className="bg-white shadow rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Plan Distribution</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Plan Distribution</h3>
+                    <button
+                      onClick={() => setShowTimingModal(true)}
+                      className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 flex items-center space-x-2"
+                    >
+                      <Clock size={14} />
+                      <span>Settings</span>
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-                      <span className="text-sm font-medium">Full Time (9 AM - 9 PM)</span>
+                      <span className="text-sm font-medium">Full Time ({convertTo12Hour(timingForm.fullTimeStart)} - {convertTo12Hour(timingForm.fullTimeEnd)})</span>
                       <span className="text-lg font-bold text-blue-600">{stats.fullTimeStudents}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-                      <span className="text-sm font-medium">Half Time (9 AM - 2 PM)</span>
+                      <span className="text-sm font-medium">Half Time ({convertTo12Hour(timingForm.halfTimeStart)} - {convertTo12Hour(timingForm.halfTimeEnd)})</span>
                       <span className="text-lg font-bold text-green-600">{stats.halfTimeStudents}</span>
                     </div>
                   </div>
@@ -814,6 +967,9 @@ ORDER BY month DESC;`;
                       Plan & Seat
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Study Timing
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fee Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -839,6 +995,14 @@ ORDER BY month DESC;`;
                         <div className="text-sm text-gray-500">Seat: {student.seatNumber}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {getStudentDisplayTiming(student)}
+                        </div>
+                        {student.useCustomTiming && (
+                          <div className="text-xs text-purple-600 font-medium">Custom Timing</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             student.feesPaid
@@ -858,6 +1022,13 @@ ORDER BY month DESC;`;
                             title="View Profile"
                           >
                             <Eye size={16} />
+                          </button>
+                          <button
+                            onClick={() => openStudentTimingModal(student)}
+                            className="text-purple-600 hover:text-purple-900"
+                            title="Change Study Timing"
+                          >
+                            ⏰
                           </button>
                           <button
                             onClick={() => handleEdit(student)}
@@ -1057,20 +1228,7 @@ ORDER BY month DESC;`;
           </div>
         )}
 
-        {/* SQL Schema View */}
-        {currentView === 'sql' && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">SQL Database Schema</h2>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <p className="text-gray-600 mb-4">
-                Here's the complete SQL schema for implementing Vishwkarma Library management system with a real database:
-              </p>
-              <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto">
-                <code>{sqlSchema}</code>
-              </pre>
-            </div>
-          </div>
-        )}
+        {/* SQL Schema view removed */}
       </main>
 
       {/* Add/Edit Student Modal */}
@@ -1115,12 +1273,12 @@ ORDER BY month DESC;`;
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
                   <input
                     type="email"
                     required
-                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
+                      formErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     value={studentForm.email}
                     onChange={(e) => {
@@ -1131,17 +1289,20 @@ ORDER BY month DESC;`;
                     }}
                     placeholder="Enter email address"
                   />
-                  {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                  {formErrors.email && <p className="text-red-500 text-xs mt-2 flex items-center">
+                    <AlertCircle size={12} className="mr-1" />
+                    {formErrors.email}
+                  </p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
                   <input
                     type="text"
                     required
                     placeholder="+91 XXXXXXXXXX"
-                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
+                      formErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
                     }`}
                     value={studentForm.phone}
                     onChange={(e) => {
@@ -1151,26 +1312,29 @@ ORDER BY month DESC;`;
                       }
                     }}
                   />
-                  {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
-                  <p className="text-xs text-gray-500 mt-1">Format: +91 XXXXXXXXXX</p>
+                  {formErrors.phone && <p className="text-red-500 text-xs mt-2 flex items-center">
+                    <AlertCircle size={12} className="mr-1" />
+                    {formErrors.phone}
+                  </p>}
+                  <p className="text-xs text-gray-500 mt-2">Format: +91 XXXXXXXXXX</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
-                  <textarea
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    rows="2"
-                    value={studentForm.address}
-                    onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Enter full address"
-                  />
-                </div>
+                                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                    <textarea
+                      className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 hover:border-gray-400"
+                      rows="2"
+                      value={studentForm.address}
+                      onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
+                      placeholder="Enter full address"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Plan Type *</label>
-                  <select
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Plan Type *</label>
+                                      <select
                     required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 hover:border-gray-400"
                     value={studentForm.planType}
                     onChange={(e) => {
                       setStudentForm(prev => ({ ...prev, planType: e.target.value, seatNumber: '' }));
@@ -1179,36 +1343,98 @@ ORDER BY month DESC;`;
                       }
                     }}
                   >
-                    <option value="half-time">Half Time - ₹500/month (9 AM - 2 PM)</option>
-                    <option value="full-time">Full Time - ₹800/month (9 AM - 9 PM)</option>
+                                            <option value="half-time">Half Time - ₹500/month ({convertTo12Hour(timingForm.halfTimeStart)} - {convertTo12Hour(timingForm.halfTimeEnd)})</option>
+                        <option value="full-time">Full Time - ₹800/month ({convertTo12Hour(timingForm.fullTimeStart)} - {convertTo12Hour(timingForm.fullTimeEnd)})</option>
                   </select>
-                </div>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Seat Number *</label>
-                  <select
-                    required
-                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.seatNumber ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                    }`}
-                    value={studentForm.seatNumber}
-                    onChange={(e) => {
-                      setStudentForm(prev => ({ ...prev, seatNumber: e.target.value }));
-                      if (formErrors.seatNumber) {
-                        setFormErrors(prev => ({ ...prev, seatNumber: '' }));
-                      }
-                    }}
-                  >
-                    <option value="">Select Available Seat</option>
-                    {getAvailableSeats(studentForm.planType).map(seat => (
-                      <option key={seat} value={seat}>{seat}</option>
-                    ))}
-                  </select>
-                  {formErrors.seatNumber && <p className="text-red-500 text-xs mt-1">{formErrors.seatNumber}</p>}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Available seats: {getAvailableSeats(studentForm.planType).length}
-                  </p>
-                </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Seat Number *</label>
+                    <select
+                      required
+                      className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
+                        formErrors.seatNumber ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      value={studentForm.seatNumber}
+                      onChange={(e) => {
+                        setStudentForm(prev => ({ ...prev, seatNumber: e.target.value }));
+                        if (formErrors.seatNumber) {
+                          setFormErrors(prev => ({ ...prev, seatNumber: '' }));
+                        }
+                      }}
+                    >
+                      <option value="">Select Available Seat</option>
+                      {getAvailableSeats(studentForm.planType).map(seat => (
+                        <option key={seat} value={seat}>{seat}</option>
+                      ))}
+                    </select>
+                    {formErrors.seatNumber && <p className="text-red-500 text-xs mt-2 flex items-center">
+                      <AlertCircle size={12} className="mr-1" />
+                      {formErrors.seatNumber}
+                    </p>}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Available seats: {getAvailableSeats(studentForm.planType).length}
+                    </p>
+                  </div>
+
+                  {/* Custom Timing Section */}
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <input
+                        type="checkbox"
+                        id="useCustomTiming"
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        checked={studentForm.useCustomTiming}
+                        onChange={(e) => setStudentForm(prev => ({ 
+                          ...prev, 
+                          useCustomTiming: e.target.checked,
+                          customStartTime: e.target.checked ? studentForm.customStartTime || '09:00' : '',
+                          customEndTime: e.target.checked ? studentForm.customEndTime || '17:00' : ''
+                        }))}
+                      />
+                      <label htmlFor="useCustomTiming" className="text-sm font-medium text-purple-700">
+                        Use Custom Study Timing
+                      </label>
+                    </div>
+
+                    {studentForm.useCustomTiming && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-purple-700 mb-1">Start Time</label>
+                            <input
+                              type="time"
+                              required={studentForm.useCustomTiming}
+                              className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                              value={studentForm.customStartTime}
+                              onChange={(e) => setStudentForm(prev => ({ ...prev, customStartTime: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-purple-700 mb-1">End Time</label>
+                            <input
+                              type="time"
+                              required={studentForm.useCustomTiming}
+                              className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                              value={studentForm.customEndTime}
+                              onChange={(e) => setStudentForm(prev => ({ ...prev, customEndTime: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        
+                        {studentForm.customStartTime && studentForm.customEndTime && (
+                          <div className="p-2 bg-white rounded border border-purple-200">
+                            <div className="text-xs text-purple-700">
+                              <p><strong>Custom Timing:</strong> {convertTo12Hour(studentForm.customStartTime)} - {convertTo12Hour(studentForm.customEndTime)}</p>
+                              <p className="text-purple-600 mt-1">
+                                This will override the default {studentForm.planType} plan timing
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                 <div className="flex items-center space-x-4">
                   <label className="flex items-center">
@@ -1262,7 +1488,7 @@ ORDER BY month DESC;`;
         </div>
       )}
 
-      {/* Student Profile Modal */}
+                    {/* Student Profile Modal */}
       {showStudentProfile && selectedStudent && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
           <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
@@ -1317,7 +1543,7 @@ ORDER BY month DESC;`;
                   </div>
                 </div>
 
-                <div className="bg-blue-50 rounded-lg p-4 mt-4">
+                                <div className="bg-blue-50 rounded-lg p-4 mt-4">
                   <h4 className="font-semibold text-lg mb-4 flex items-center">
                     <MapPin className="mr-2" size={20} />
                     Plan Details
@@ -1331,8 +1557,24 @@ ORDER BY month DESC;`;
                       <label className="text-sm font-medium text-gray-600">Study Hours</label>
                       <p className="text-gray-900 flex items-center">
                         <Clock className="mr-1" size={14} />
-                        {selectedStudent.studyHours}
+                        {getStudentDisplayTiming(selectedStudent)}
                       </p>
+                      <div className="mt-1 flex items-center space-x-3">
+                        {selectedStudent.useCustomTiming && (
+                          <span className="text-purple-600 text-sm font-medium flex items-center">✨ Custom Timing Applied</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openStudentTimingModal(selectedStudent);
+                            setShowStudentProfile(false);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                          title="Manage this student's time slot"
+                        >
+                          Manage time slot
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Seat Number</label>
@@ -1452,6 +1694,17 @@ ORDER BY month DESC;`;
                       </button>
                       
                       <button
+                        onClick={() => {
+                          setShowStudentProfile(false);
+                          openStudentTimingModal(selectedStudent);
+                        }}
+                        className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 flex items-center space-x-2"
+                      >
+                        ⏰
+                        <span>Change Timing</span>
+                      </button>
+                      
+                      <button
                         onClick={() => openPaymentModal(selectedStudent)}
                         className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center space-x-2"
                       >
@@ -1545,6 +1798,228 @@ ORDER BY month DESC;`;
                   className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                 >
                   Record Payment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Timing Settings Modal */}
+      {showTimingModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
+          <div className="relative top-20 mx-auto p-6 border w-11/12 max-w-lg shadow-2xl rounded-2xl bg-white/95 backdrop-blur-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                ⏰ Study Timings Settings
+              </h3>
+              <button
+                onClick={() => setShowTimingModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleTimingSubmit}>
+              <div className="space-y-6">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-3">Full Time Plan Settings</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-700 mb-2">Start Time</label>
+                      <input
+                        type="time"
+                        required
+                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={timingForm.fullTimeStart}
+                        onChange={(e) => setTimingForm(prev => ({ ...prev, fullTimeStart: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-blue-700 mb-2">End Time</label>
+                      <input
+                        type="time"
+                        required
+                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={timingForm.fullTimeEnd}
+                        onChange={(e) => setTimingForm(prev => ({ ...prev, fullTimeEnd: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h4 className="font-semibold text-green-800 mb-3">Half Time Plan Settings</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-green-700 mb-2">Start Time</label>
+                      <input
+                        type="time"
+                        required
+                        className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={timingForm.halfTimeStart}
+                        onChange={(e) => setTimingForm(prev => ({ ...prev, halfTimeStart: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-green-700 mb-2">End Time</label>
+                      <input
+                        type="time"
+                        required
+                        className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={timingForm.halfTimeEnd}
+                        onChange={(e) => setTimingForm(prev => ({ ...prev, halfTimeEnd: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <h4 className="font-semibold text-yellow-800 mb-2">Current Settings</h4>
+                  <div className="text-sm text-yellow-700">
+                    <p><strong>Full Time:</strong> {convertTo12Hour(timingForm.fullTimeStart)} - {convertTo12Hour(timingForm.fullTimeEnd)}</p>
+                    <p><strong>Half Time:</strong> {convertTo12Hour(timingForm.halfTimeStart)} - {convertTo12Hour(timingForm.halfTimeEnd)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowTimingModal(false)}
+                  className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm font-medium hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  Save Timings
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Student Timing Modal */}
+      {showStudentTimingModal && selectedStudentForTiming && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
+          <div className="relative top-20 mx-auto p-6 border w-11/12 max-w-lg shadow-2xl rounded-2xl bg-white/95 backdrop-blur-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                ⏰ Customize Study Timing
+              </h3>
+              <button
+                onClick={() => setShowStudentTimingModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-800 mb-2">Student Information</h4>
+              <div className="text-sm text-gray-600">
+                <p><strong>Name:</strong> {selectedStudentForTiming.name}</p>
+                <p><strong>Current Plan:</strong> {selectedStudentForTiming.planType}</p>
+                                        <p><strong>Default Timing:</strong> {
+                          selectedStudentForTiming.planType === 'full-time' 
+                            ? `${convertTo12Hour(timingForm.fullTimeStart)} - ${convertTo12Hour(timingForm.fullTimeEnd)}`
+                            : `${convertTo12Hour(timingForm.halfTimeStart)} - ${convertTo12Hour(timingForm.halfTimeEnd)}`
+                        }</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleStudentTimingSubmit}>
+              <div className="space-y-6">
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="useCustomTiming"
+                    checked={studentTimingForm.useCustomTiming}
+                    onChange={(e) => setStudentTimingForm(prev => ({ 
+                      ...prev, 
+                      useCustomTiming: e.target.checked,
+                      customStartTime: e.target.checked ? studentTimingForm.customStartTime || '09:00' : '',
+                      customEndTime: e.target.checked ? studentTimingForm.customEndTime || '17:00' : ''
+                    }))}
+                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="useCustomTiming" className="text-sm font-medium text-gray-700">
+                    Use Custom Study Timing
+                  </label>
+                </div>
+
+                {studentTimingForm.useCustomTiming && (
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <h4 className="font-semibold text-purple-800 mb-3">Custom Timing</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-purple-700 mb-2">Start Time</label>
+                        <input
+                          type="time"
+                          required={studentTimingForm.useCustomTiming}
+                          className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          value={studentTimingForm.customStartTime}
+                          onChange={(e) => setStudentTimingForm(prev => ({ ...prev, customStartTime: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-purple-700 mb-2">End Time</label>
+                        <input
+                          type="time"
+                          required={studentTimingForm.useCustomTiming}
+                          className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          value={studentTimingForm.customEndTime}
+                          onChange={(e) => setStudentTimingForm(prev => ({ ...prev, customEndTime: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    
+                                            {studentTimingForm.customStartTime && studentTimingForm.customEndTime && (
+                          <div className="mt-3 p-3 bg-white rounded border border-purple-200">
+                            <div className="text-sm text-purple-700">
+                              <p><strong>Custom Timing:</strong> {convertTo12Hour(studentTimingForm.customStartTime)} - {convertTo12Hour(studentTimingForm.customEndTime)}</p>
+                              <p className="text-xs text-purple-600 mt-1">
+                                This will override the default {selectedStudentForTiming.planType} plan timing
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                  </div>
+                )}
+
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">Timing Summary</h4>
+                  <div className="text-sm text-blue-700">
+                                            <p><strong>Current Display:</strong> {getStudentDisplayTiming(selectedStudentForTiming)}</p>
+                        <p><strong>After Update:</strong> {
+                          studentTimingForm.useCustomTiming && studentTimingForm.customStartTime && studentTimingForm.customEndTime
+                            ? `${convertTo12Hour(studentTimingForm.customStartTime)} - ${convertTo12Hour(studentTimingForm.customEndTime)} (Custom)`
+                            : selectedStudentForTiming.planType === 'full-time'
+                              ? `${convertTo12Hour(timingForm.fullTimeStart)} - ${convertTo12Hour(timingForm.fullTimeEnd)}`
+                              : `${convertTo12Hour(timingForm.halfTimeStart)} - ${convertTo12Hour(timingForm.halfTimeEnd)}`
+                        }</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowStudentTimingModal(false)}
+                  className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl text-sm font-medium hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  Update Timing
                 </button>
               </div>
             </form>
