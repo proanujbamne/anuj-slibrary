@@ -1,81 +1,77 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, BookOpen, Users, DollarSign, MapPin, Clock, Eye, X, Calendar, History, Phone, Mail, User, CreditCard, AlertCircle, CheckCircle, Database, Download, Upload } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Users, DollarSign, Building2, Eye, X, Calendar, History, Phone, Mail, User, CreditCard, AlertCircle, CheckCircle, Database, Download, Upload, Briefcase, TrendingUp } from 'lucide-react';
 import { 
   initializeDatabase, 
-  getAllStudents, 
-  saveStudents, 
-  addStudent as dbAddStudent, 
-  updateStudent as dbUpdateStudent, 
-  deleteStudent as dbDeleteStudent,
-  getSeatLayout,
-  saveSeatLayout,
+  getAllEmployees, 
+  saveEmployees, 
+  addEmployee as dbAddEmployee, 
+  updateEmployee as dbUpdateEmployee, 
+  deleteEmployee as dbDeleteEmployee,
+  getAllDepartments,
   addPayment as dbAddPayment,
+  calculateNetSalary,
   exportData,
   importData,
-  getDatabaseStats
+  getDatabaseStats,
+  generateEmployeeId
 } from './database';
 
-const StudyLibraryManagementSystem = () => {
+const EmployeePaymentTracker = () => {
   // Initialize database and load data
-  const [students, setStudents] = useState([]);
-  const [seatLayout, setSeatLayout] = useState({
-    total: 80,
-    occupied: [],
-    fullTimeSeats: [],
-    halfTimeSeats: []
-  });
-
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [currentView, setCurrentView] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showStudentProfile, setShowStudentProfile] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [editingStudent, setEditingStudent] = useState(null);
+  const [showEmployeeProfile, setShowEmployeeProfile] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [editingEmployee, setEditingEmployee] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({
-    amount: '',
-    method: 'Cash',
-    notes: ''
-  });
-  const [timingForm, setTimingForm] = useState({
-    fullTimeStart: '09:00',
-    fullTimeEnd: '21:00',
-    halfTimeStart: '09:00',
-    halfTimeEnd: '14:00'
-  });
-  const [showTimingModal, setShowTimingModal] = useState(false);
-  const [showStudentTimingModal, setShowStudentTimingModal] = useState(false);
-  const [selectedStudentForTiming, setSelectedStudentForTiming] = useState(null);
-  const [studentTimingForm, setStudentTimingForm] = useState({
-    customStartTime: '',
-    customEndTime: '',
-    useCustomTiming: false
-  });
   const [formErrors, setFormErrors] = useState({});
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+  const [employeeForm, setEmployeeForm] = useState({
+    employeeId: '',
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    position: '',
+    baseSalary: '',
+    bankAccount: '',
+    address: '',
+    paymentStatus: 'Pending'
+  });
+
+  const [paymentForm, setPaymentForm] = useState({
+    month: '',
+    baseSalary: '',
+    deductions: '0',
+    bonuses: '0',
+    netSalary: '0',
+    method: 'Bank Transfer',
+    notes: ''
+  });
 
   // Load data from database on component mount
   useEffect(() => {
     initializeDatabase();
-    const loadedStudents = getAllStudents();
-    const loadedSeatLayout = getSeatLayout();
-    setStudents(loadedStudents);
-    setSeatLayout(loadedSeatLayout);
+    const loadedEmployees = getAllEmployees();
+    const loadedDepartments = getAllDepartments();
+    setEmployees(loadedEmployees);
+    setDepartments(loadedDepartments);
   }, []);
 
-  const [studentForm, setStudentForm] = useState({
-    name: '',
-    email: '',
-    phone: '+91 ',
-    address: '',
-    planType: 'half-time',
-    feesPaid: false,
-    seatNumber: '',
-    paymentMethod: 'Cash',
-    useCustomTiming: false,
-    customStartTime: '',
-    customEndTime: ''
-  });
+  // Calculate net salary when payment form changes
+  useEffect(() => {
+    if (paymentForm.baseSalary) {
+      const base = parseFloat(paymentForm.baseSalary) || 0;
+      const deduct = parseFloat(paymentForm.deductions) || 0;
+      const bonus = parseFloat(paymentForm.bonuses) || 0;
+      const net = calculateNetSalary(base, deduct, bonus);
+      setPaymentForm(prev => ({ ...prev, netSalary: net.toString() }));
+    }
+  }, [paymentForm.baseSalary, paymentForm.deductions, paymentForm.bonuses]);
 
   // Show notification
   const showNotification = (message, type = 'success') => {
@@ -84,88 +80,70 @@ const StudyLibraryManagementSystem = () => {
   };
 
   const resetForm = () => {
-    setStudentForm({
+    setEmployeeForm({
+      employeeId: '',
       name: '',
       email: '',
-      phone: '+91 ',
+      phone: '',
+      department: '',
+      position: '',
+      baseSalary: '',
+      bankAccount: '',
       address: '',
-      planType: 'half-time',
-      feesPaid: false,
-      seatNumber: '',
-      paymentMethod: 'Cash',
-      useCustomTiming: false,
-      customStartTime: '',
-      customEndTime: ''
+      paymentStatus: 'Pending'
     });
-    setEditingStudent(null);
+    setEditingEmployee(null);
     setFormErrors({});
   };
 
   const validateForm = () => {
     const errors = {};
     
-    if (!studentForm.name.trim()) {
+    if (!employeeForm.name.trim()) {
       errors.name = 'Name is required';
     }
     
-    if (!studentForm.email.trim()) {
+    if (!employeeForm.email.trim()) {
       errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(studentForm.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(employeeForm.email)) {
       errors.email = 'Email is invalid';
     }
     
-    if (!studentForm.phone.trim()) {
+    if (!employeeForm.phone.trim()) {
       errors.phone = 'Phone is required';
-    } else if (!/^\+91\s\d{10}$/.test(studentForm.phone)) {
-      errors.phone = 'Phone format should be +91 XXXXXXXXXX';
     }
     
-    if (!studentForm.seatNumber) {
-      errors.seatNumber = 'Please select a seat';
+    if (!employeeForm.department) {
+      errors.department = 'Department is required';
     }
 
-    // Check for duplicate email or phone (except when editing)
-    const existingStudent = students.find(s => 
-      s.id !== (editingStudent?.id || 0) && 
-      (s.email === studentForm.email || s.phone === studentForm.phone)
+    if (!employeeForm.position.trim()) {
+      errors.position = 'Position is required';
+    }
+
+    if (!employeeForm.baseSalary || parseFloat(employeeForm.baseSalary) <= 0) {
+      errors.baseSalary = 'Valid salary is required';
+    }
+
+    // Check for duplicate email (except when editing)
+    const existingEmployee = employees.find(e => 
+      e.id !== (editingEmployee?.id || 0) && 
+      e.email === employeeForm.email
     );
     
-    if (existingStudent) {
-      if (existingStudent.email === studentForm.email) {
-        errors.email = 'Email already exists';
-      }
-      if (existingStudent.phone === studentForm.phone) {
-        errors.phone = 'Phone number already exists';
-      }
+    if (existingEmployee) {
+      errors.email = 'Email already exists';
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const getAvailableSeats = (planType) => {
-    const availableSeats = [];
-    
-    for (let i = 1; i <= seatLayout.total; i++) {
-      const seatNum = i.toString().padStart(2, '0');
-      if (!seatLayout.occupied.includes(seatNum) || 
-          (editingStudent && editingStudent.seatNumber === seatNum)) {
-        availableSeats.push(seatNum);
-      }
-    }
-    return availableSeats;
-  };
-
-  const generateStudentId = () => {
-    return Math.max(...students.map(s => s.id), 0) + 1;
-  };
-
-  const handleAddStudent = (e) => {
+  const handleAddEmployee = (e) => {
     if (e) {
       e.preventDefault();
     }
 
-    // Clear previous errors
     setFormErrors({});
     
     if (!validateForm()) {
@@ -174,227 +152,116 @@ const StudyLibraryManagementSystem = () => {
     }
 
     try {
-      const feeAmount = studentForm.planType === 'full-time' ? 800 : 500;
-      const studyHours = studentForm.useCustomTiming && studentForm.customStartTime && studentForm.customEndTime
-        ? `${studentForm.customStartTime} - ${studentForm.customEndTime}`
-        : studentForm.planType === 'full-time' 
-          ? `${timingForm.fullTimeStart} - ${timingForm.fullTimeEnd}` 
-          : `${timingForm.halfTimeStart} - ${timingForm.halfTimeEnd}`;
       const currentDate = new Date().toISOString().split('T')[0];
       
-      if (editingStudent) {
-        // Update existing student
-        const updatedStudent = {
-          ...editingStudent,
-          name: studentForm.name,
-          email: studentForm.email,
-          phone: studentForm.phone,
-          address: studentForm.address,
-          planType: studentForm.planType,
-          seatNumber: studentForm.seatNumber,
-          feeAmount,
-          studyHours,
-          feesPaid: studentForm.feesPaid,
-          useCustomTiming: studentForm.useCustomTiming,
-          customStartTime: studentForm.customStartTime,
-          customEndTime: studentForm.customEndTime,
-          lastFeeDate: studentForm.feesPaid && !editingStudent.feesPaid ? currentDate : editingStudent.lastFeeDate,
-          paymentHistory: studentForm.feesPaid && !editingStudent.feesPaid ? [
-            ...editingStudent.paymentHistory,
-            {
-              id: editingStudent.paymentHistory.length + 1,
-              date: currentDate,
-              amount: feeAmount,
-              method: studentForm.paymentMethod,
-              status: 'Paid',
-              month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-            }
-          ] : editingStudent.paymentHistory,
-          totalPaid: studentForm.feesPaid && !editingStudent.feesPaid ? 
-            editingStudent.totalPaid + feeAmount : editingStudent.totalPaid
+      if (editingEmployee) {
+        // Update existing employee
+        const updatedEmployee = {
+          ...editingEmployee,
+          name: employeeForm.name,
+          email: employeeForm.email,
+          phone: employeeForm.phone,
+          department: employeeForm.department,
+          position: employeeForm.position,
+          baseSalary: parseFloat(employeeForm.baseSalary),
+          bankAccount: employeeForm.bankAccount,
+          address: employeeForm.address,
+          paymentStatus: employeeForm.paymentStatus
         };
         
-        if (dbUpdateStudent(updatedStudent)) {
-          setStudents(getAllStudents());
-        }
-        
-        // Update seat layout if seat changed
-        if (editingStudent.seatNumber !== studentForm.seatNumber) {
-          const newLayout = { ...seatLayout };
-          // Remove old seat
-          newLayout.occupied = newLayout.occupied.filter(
-            seat => seat !== editingStudent.seatNumber
-          );
-          // Add new seat
-          newLayout.occupied.push(studentForm.seatNumber);
-          setSeatLayout(newLayout);
-          saveSeatLayout(newLayout);
-        }
-        
-        showNotification('Student updated successfully!', 'success');
-      } else {
-        // Add new student
-        const newStudent = {
-          name: studentForm.name,
-          email: studentForm.email,
-          phone: studentForm.phone,
-          address: studentForm.address,
-          planType: studentForm.planType,
-          seatNumber: studentForm.seatNumber,
-          joinDate: currentDate,
-          lastFeeDate: studentForm.feesPaid ? currentDate : null,
-          feeAmount,
-          studyHours,
-          status: 'Active',
-          feesPaid: studentForm.feesPaid,
-          useCustomTiming: studentForm.useCustomTiming,
-          customStartTime: studentForm.customStartTime,
-          customEndTime: studentForm.customEndTime,
-          paymentHistory: studentForm.feesPaid ? [{
-            id: 1,
-            date: currentDate,
-            amount: feeAmount,
-            method: studentForm.paymentMethod,
-            status: 'Paid',
-            month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-          }] : [],
-          totalPaid: studentForm.feesPaid ? feeAmount : 0
-        };
-        
-        const addedStudent = dbAddStudent(newStudent);
-        if (addedStudent) {
-          setStudents(getAllStudents());
-          
-          // Update seat layout
-          const newLayout = { ...seatLayout };
-          newLayout.occupied.push(studentForm.seatNumber);
-          setSeatLayout(newLayout);
-          saveSeatLayout(newLayout);
-          
-          showNotification('Student added successfully!', 'success');
+        if (dbUpdateEmployee(updatedEmployee)) {
+          setEmployees(getAllEmployees());
+          showNotification('Employee updated successfully!', 'success');
         } else {
-          showNotification('Error adding student. Please try again.', 'error');
+          showNotification('Error updating employee. Please try again.', 'error');
+        }
+      } else {
+        // Add new employee
+        const newEmployee = {
+          employeeId: generateEmployeeId(),
+          name: employeeForm.name,
+          email: employeeForm.email,
+          phone: employeeForm.phone,
+          department: employeeForm.department,
+          position: employeeForm.position,
+          baseSalary: parseFloat(employeeForm.baseSalary),
+          bankAccount: employeeForm.bankAccount,
+          address: employeeForm.address,
+          joiningDate: currentDate,
+          status: 'Active',
+          paymentStatus: 'Pending',
+          paymentHistory: [],
+          totalPaid: 0,
+          lastPaymentDate: null
+        };
+        
+        const addedEmployee = dbAddEmployee(newEmployee);
+        if (addedEmployee) {
+          setEmployees(getAllEmployees());
+          showNotification('Employee added successfully!', 'success');
+        } else {
+          showNotification('Error adding employee. Please try again.', 'error');
         }
       }
       
-      // Close modal and reset form
       setShowModal(false);
       resetForm();
       
     } catch (error) {
-      console.error('Error adding/updating student:', error);
-      showNotification('Error saving student. Please try again.', 'error');
+      console.error('Error adding/updating employee:', error);
+      showNotification('Error saving employee. Please try again.', 'error');
     }
   };
 
-  const handleEdit = (student) => {
-    setEditingStudent(student);
-    setStudentForm({
-      name: student.name,
-      email: student.email,
-      phone: student.phone,
-      address: student.address || '',
-      planType: student.planType,
-      feesPaid: student.feesPaid,
-      seatNumber: student.seatNumber,
-      paymentMethod: 'Cash',
-      useCustomTiming: student.useCustomTiming || false,
-      customStartTime: student.customStartTime || '',
-      customEndTime: student.customEndTime || ''
+  const handleEdit = (employee) => {
+    setEditingEmployee(employee);
+    setEmployeeForm({
+      employeeId: employee.employeeId,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      department: employee.department,
+      position: employee.position,
+      baseSalary: employee.baseSalary.toString(),
+      bankAccount: employee.bankAccount || '',
+      address: employee.address || '',
+      paymentStatus: employee.paymentStatus
     });
     setShowModal(true);
   };
 
-  const handleDelete = (student) => {
-    if (window.confirm(`Are you sure you want to delete ${student.name}? This action cannot be undone.`)) {
-      if (dbDeleteStudent(student.id)) {
-        // Update students list
-        setStudents(getAllStudents());
+  const handleDelete = (employee) => {
+    if (window.confirm(`Are you sure you want to delete ${employee.name}? This action cannot be undone.`)) {
+      if (dbDeleteEmployee(employee.id)) {
+        setEmployees(getAllEmployees());
         
-        // Free up the seat
-        const newLayout = { ...seatLayout };
-        newLayout.occupied = newLayout.occupied.filter(seat => seat !== student.seatNumber);
-        setSeatLayout(newLayout);
-        saveSeatLayout(newLayout);
-        
-        // Close profile modal if the deleted student was being viewed
-        if (selectedStudent && selectedStudent.id === student.id) {
-          setShowStudentProfile(false);
-          setSelectedStudent(null);
+        if (selectedEmployee && selectedEmployee.id === employee.id) {
+          setShowEmployeeProfile(false);
+          setSelectedEmployee(null);
         }
         
-        showNotification('Student deleted successfully!', 'success');
+        showNotification('Employee deleted successfully!', 'success');
       } else {
-        showNotification('Error deleting student. Please try again.', 'error');
+        showNotification('Error deleting employee. Please try again.', 'error');
       }
     }
   };
 
-  const addPayment = (studentId, amount, method = 'Cash', notes = '') => {
-    const currentDate = new Date().toISOString().split('T')[0];
-    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    
-    const payment = {
-      date: currentDate,
-      amount: amount,
-      method: method,
-      status: 'Paid',
-      month: currentMonth,
-      notes: notes,
-      paymentId: Date.now() // Unique payment ID for tracking
-    };
-    
-    if (dbAddPayment(studentId, payment)) {
-      setStudents(getAllStudents());
-      
-      // Update selected student if viewing their profile
-      if (selectedStudent && selectedStudent.id === studentId) {
-        setSelectedStudent(getAllStudents().find(s => s.id === studentId));
-      }
-      
-      showNotification('Payment recorded successfully!', 'success');
-    } else {
-      showNotification('Error recording payment. Please try again.', 'error');
-    }
+  const viewEmployeeProfile = (employee) => {
+    setSelectedEmployee(employee);
+    setShowEmployeeProfile(true);
   };
 
-  const toggleFeePayment = (studentId) => {
-    const student = students.find(s => s.id === studentId);
-    console.log('Toggling payment for student:', student?.name, 'Current status:', student?.feesPaid);
-    
-    if (student && !student.feesPaid) {
-      addPayment(studentId, student.feeAmount);
-    } else if (student && student.feesPaid) {
-      // Mark as unpaid
-      setStudents(prev => {
-        const updatedStudents = prev.map(s => 
-          s.id === studentId 
-            ? { ...s, feesPaid: false }
-            : s
-        );
-        console.log('Updated payment status to unpaid');
-        return updatedStudents;
-      });
-      
-      // Update selected student if viewing their profile
-      if (selectedStudent && selectedStudent.id === studentId) {
-        setSelectedStudent(prev => ({ ...prev, feesPaid: false }));
-      }
-      
-      showNotification('Payment status updated!', 'success');
-    }
-  };
-
-  const viewStudentProfile = (student) => {
-    setSelectedStudent(student);
-    setShowStudentProfile(true);
-  };
-
-  const openPaymentModal = (student) => {
-    setSelectedStudent(student);
+  const openPaymentModal = (employee) => {
+    setSelectedEmployee(employee);
+    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     setPaymentForm({
-      amount: student.feeAmount.toString(),
-      method: 'Cash',
+      month: currentMonth,
+      baseSalary: employee.baseSalary.toString(),
+      deductions: '0',
+      bonuses: '0',
+      netSalary: employee.baseSalary.toString(),
+      method: 'Bank Transfer',
       notes: ''
     });
     setShowPaymentModal(true);
@@ -402,284 +269,116 @@ const StudyLibraryManagementSystem = () => {
 
   const handlePaymentSubmit = (e) => {
     e.preventDefault();
-    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-      showNotification('Please enter a valid amount', 'error');
+    
+    const netSalary = parseFloat(paymentForm.netSalary);
+    if (!paymentForm.month || netSalary <= 0) {
+      showNotification('Please enter valid payment details', 'error');
       return;
     }
     
-    addPayment(selectedStudent.id, parseFloat(paymentForm.amount), paymentForm.method, paymentForm.notes);
-    setShowPaymentModal(false);
-    setPaymentForm({ amount: '', method: 'Cash', notes: '' });
-  };
-
-  const handleTimingSubmit = (e) => {
-    e.preventDefault();
-    
-    // Validate timing
-    if (timingForm.fullTimeStart >= timingForm.fullTimeEnd) {
-      showNotification('Full-time start time must be before end time', 'error');
-      return;
-    }
-    
-    if (timingForm.halfTimeStart >= timingForm.halfTimeEnd) {
-      showNotification('Half-time start time must be before end time', 'error');
-      return;
-    }
-    
-    // Save to localStorage
-    localStorage.setItem('library_timings', JSON.stringify(timingForm));
-    
-    showNotification('Study timings updated successfully!', 'success');
-    setShowTimingModal(false);
-  };
-
-  const loadTimings = () => {
-    const savedTimings = localStorage.getItem('library_timings');
-    if (savedTimings) {
-      setTimingForm(JSON.parse(savedTimings));
-    }
-  };
-
-  const openStudentTimingModal = (student) => {
-    setSelectedStudentForTiming(student);
-    setStudentTimingForm({
-      customStartTime: student.customStartTime || '',
-      customEndTime: student.customEndTime || '',
-      useCustomTiming: student.useCustomTiming || false
-    });
-    setShowStudentTimingModal(true);
-  };
-
-  const handleStudentTimingSubmit = (e) => {
-    e.preventDefault();
-    
-    if (studentTimingForm.useCustomTiming) {
-      if (!studentTimingForm.customStartTime || !studentTimingForm.customEndTime) {
-        showNotification('Please set both start and end times for custom timing', 'error');
-        return;
-      }
-      
-      if (studentTimingForm.customStartTime >= studentTimingForm.customEndTime) {
-        showNotification('Start time must be before end time', 'error');
-        return;
-      }
-    }
-    
-    // Update student with custom timing
-    const updatedStudent = {
-      ...selectedStudentForTiming,
-      customStartTime: studentTimingForm.customStartTime,
-      customEndTime: studentTimingForm.customEndTime,
-      useCustomTiming: studentTimingForm.useCustomTiming
+    const currentDate = new Date().toISOString().split('T')[0];
+    const payment = {
+      date: currentDate,
+      month: paymentForm.month,
+      baseSalary: parseFloat(paymentForm.baseSalary),
+      deductions: parseFloat(paymentForm.deductions),
+      bonuses: parseFloat(paymentForm.bonuses),
+      netSalary: netSalary,
+      method: paymentForm.method,
+      status: 'Paid',
+      notes: paymentForm.notes,
+      paymentId: Date.now()
     };
     
-    // Update in database
-    dbUpdateStudent(updatedStudent);
-    
-    // Update local state
-    setStudents(prev => prev.map(s => 
-      s.id === updatedStudent.id ? updatedStudent : s
-    ));
-    
-    showNotification('Student timing updated successfully!', 'success');
-    setShowStudentTimingModal(false);
-  };
-
-  const getStudentDisplayTiming = (student) => {
-    if (student.useCustomTiming && student.customStartTime && student.customEndTime) {
-      return `${convertTo12Hour(student.customStartTime)} - ${convertTo12Hour(student.customEndTime)} (Custom)`;
-    }
-    
-    if (student.planType === 'full-time') {
-      return `${convertTo12Hour(timingForm.fullTimeStart)} - ${convertTo12Hour(timingForm.fullTimeEnd)}`;
+    if (dbAddPayment(selectedEmployee.id, payment)) {
+      setEmployees(getAllEmployees());
+      
+      if (selectedEmployee) {
+        setSelectedEmployee(getAllEmployees().find(e => e.id === selectedEmployee.id));
+      }
+      
+      showNotification('Payment recorded successfully!', 'success');
+      setShowPaymentModal(false);
+      setPaymentForm({
+        month: '',
+        baseSalary: '',
+        deductions: '0',
+        bonuses: '0',
+        netSalary: '0',
+        method: 'Bank Transfer',
+        notes: ''
+      });
     } else {
-      return `${convertTo12Hour(timingForm.halfTimeStart)} - ${convertTo12Hour(timingForm.halfTimeEnd)}`;
+      showNotification('Error recording payment. Please try again.', 'error');
     }
   };
 
-  const convertTo12Hour = (time24) => {
-    if (!time24) return '';
-    
-    const [hours, minutes] = time24.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
-  const convertTo24Hour = (time12) => {
-    if (!time12) return '';
-    
-    const [time, period] = time12.split(' ');
-    let [hours, minutes] = time.split(':');
-    let hour = parseInt(hours);
-    
-    if (period === 'PM' && hour !== 12) {
-      hour += 12;
-    } else if (period === 'AM' && hour === 12) {
-      hour = 0;
-    }
-    
-    return `${hour.toString().padStart(2, '0')}:${minutes}`;
-  };
-
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.seatNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.phone.includes(searchTerm)
+  const filteredEmployees = employees.filter(employee =>
+    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.position.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const stats = {
-    totalStudents: students.length,
-    activeStudents: students.filter(s => s.status === 'Active').length,
-    feesPending: students.filter(s => !s.feesPaid).length,
-    fullTimeStudents: students.filter(s => s.planType === 'full-time').length,
-    halfTimeStudents: students.filter(s => s.planType === 'half-time').length,
-    occupiedSeats: seatLayout.occupied.length,
-    totalSeats: seatLayout.total
+  const stats = getDatabaseStats() || {
+    totalEmployees: 0,
+    activeEmployees: 0,
+    totalDepartments: 0,
+    totalPaid: 0,
+    thisMonthPaid: 0,
+    pendingPayments: 0,
+    pendingAmount: 0,
+    averageSalary: 0
   };
 
-  // SQL Database Schema (for reference)
-  const sqlSchema = `-- Vishwkarma Library Database Schema
+  const renderDepartmentView = () => {
+    const deptGroups = {};
+    employees.forEach(emp => {
+      if (!deptGroups[emp.department]) {
+        deptGroups[emp.department] = [];
+      }
+      deptGroups[emp.department].push(emp);
+    });
 
--- Students Table
-CREATE TABLE students (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    phone VARCHAR(20) UNIQUE NOT NULL,
-    address TEXT,
-    join_date DATE NOT NULL,
-    plan_type ENUM('full-time', 'half-time') NOT NULL,
-    fee_amount DECIMAL(10,2) NOT NULL,
-    seat_number VARCHAR(10) UNIQUE NOT NULL,
-    status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Active',
-    study_hours VARCHAR(50) NOT NULL,
-    fees_paid BOOLEAN DEFAULT FALSE,
-    last_fee_date DATE,
-    total_paid DECIMAL(10,2) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Payment History Table
-CREATE TABLE payment_history (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    student_id INT NOT NULL,
-    payment_date DATE NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    payment_method ENUM('Cash', 'UPI', 'Card', 'Bank Transfer') NOT NULL,
-    month_year VARCHAR(20) NOT NULL,
-    status ENUM('Paid', 'Pending', 'Failed') DEFAULT 'Paid',
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
--- Seats Table
-CREATE TABLE seats (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    seat_number VARCHAR(10) UNIQUE NOT NULL,
-    seat_type ENUM('full-time', 'half-time') NOT NULL,
-    is_occupied BOOLEAN DEFAULT FALSE,
-    student_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
-);
-
--- Sample SQL Queries for Vishwkarma Library
--- Get all students with pending fees
-SELECT * FROM students WHERE fees_paid = FALSE;
-
--- Get payment history for a student
-SELECT * FROM payment_history WHERE student_id = 1 ORDER BY payment_date DESC;
-
--- Get seat occupancy report
-SELECT 
-    COUNT(*) as occupied_seats,
-    (SELECT COUNT(*) FROM seats) as total_seats
-FROM seats 
-WHERE is_occupied = TRUE;
-
--- Monthly revenue report
-SELECT 
-    DATE_FORMAT(payment_date, '%Y-%m') as month,
-    SUM(amount) as total_revenue,
-    COUNT(*) as total_payments
-FROM payment_history 
-GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
-ORDER BY month DESC;`;
-
-  const renderSeatMap = () => {
-    const seatsPerRow = 10; // 10 seats per row for better horizontal layout
-    const totalRows = Math.ceil(seatLayout.total / seatsPerRow);
-    
     return (
-      <div className="w-full max-w-6xl">
-        <h3 className="text-lg font-semibold mb-6 text-center">Vishwkarma Library Seats (80 Total)</h3>
-        
-        {/* Legend */}
-        <div className="flex justify-center mb-6 space-x-6">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-            <span className="text-sm">Available</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-            <span className="text-sm">Occupied</span>
-          </div>
-        </div>
-        
-        {/* Seat rows */}
-        <div className="seat-map-container">
-          {Array.from({ length: totalRows }, (_, rowIndex) => {
-            const startSeat = rowIndex * seatsPerRow + 1;
-            const endSeat = Math.min((rowIndex + 1) * seatsPerRow, seatLayout.total);
-            
-            return (
-              <div key={rowIndex} className="seat-row">
-                {Array.from({ length: seatsPerRow }, (_, colIndex) => {
-                  const seatNumber = startSeat + colIndex;
-                  if (seatNumber > seatLayout.total) return <div key={colIndex} className="w-16"></div>; // Empty space
-                  
-                  const seatNum = seatNumber.toString().padStart(2, '0');
-                  const isOccupied = seatLayout.occupied.includes(seatNum);
-                  const occupant = students.find(s => s.seatNumber === seatNum);
-                  
-                  return (
-                    <div
-                      key={seatNum}
-                      className={`seat-item ${
-                        isOccupied 
-                          ? 'bg-red-100 border-red-300 text-red-800 border' 
-                          : 'bg-green-100 border-green-300 text-green-800 border'
-                      }`}
-                      title={isOccupied ? `Occupied by ${occupant?.name}` : 'Available'}
-                      onClick={() => isOccupied && occupant && viewStudentProfile(occupant)}
-                    >
-                      <div className="seat-number">{seatNum}</div>
-                      <div className="seat-status">
-                        {isOccupied ? 'Occupied' : 'Available'}
-                      </div>
-                      {isOccupied && occupant && (
-                        <div className="seat-occupant">
-                          {occupant.name.split(' ')[0]}
-                        </div>
-                      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Object.entries(deptGroups).map(([dept, emps]) => (
+          <div key={dept} className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Building2 className="mr-2 text-blue-600" size={20} />
+                {dept}
+              </h3>
+              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                {emps.length} {emps.length === 1 ? 'Employee' : 'Employees'}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {emps.map(emp => (
+                <div 
+                  key={emp.id} 
+                  className="p-3 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                  onClick={() => viewEmployeeProfile(emp)}
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">{emp.name}</p>
+                      <p className="text-sm text-gray-600">{emp.position}</p>
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-        
-        {/* Row labels */}
-        <div className="mt-4 text-center text-sm text-gray-600">
-          <p>Front of Library →</p>
-        </div>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      emp.paymentStatus === 'Paid' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {emp.paymentStatus}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -704,8 +403,8 @@ ORDER BY month DESC;`;
         <div className="modern-container">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <BookOpen className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-2 text-xl font-bold text-gray-900">Vishwkarma Library</h1>
+              <DollarSign className="h-8 w-8 text-blue-600" />
+              <h1 className="ml-2 text-xl font-bold text-gray-900">Employee Payment Tracker</h1>
             </div>
             <nav className="flex space-x-4">
               <button
@@ -719,24 +418,24 @@ ORDER BY month DESC;`;
                 Dashboard
               </button>
               <button
-                onClick={() => setCurrentView('students')}
+                onClick={() => setCurrentView('employees')}
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  currentView === 'students'
+                  currentView === 'employees'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Students
+                Employees
               </button>
               <button
-                onClick={() => setCurrentView('seats')}
+                onClick={() => setCurrentView('departments')}
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  currentView === 'seats'
+                  currentView === 'departments'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Seat Map
+                Departments
               </button>
               <button
                 onClick={() => setCurrentView('database')}
@@ -748,17 +447,6 @@ ORDER BY month DESC;`;
               >
                 Database
               </button>
-              <button
-                onClick={() => setCurrentView('sql')}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  currentView === 'sql'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                SQL Schema
-              </button>
-              {/* Timing settings nav removed (keep SQL only) */}
             </nav>
           </div>
         </div>
@@ -769,7 +457,9 @@ ORDER BY month DESC;`;
         {currentView === 'dashboard' && (
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 justify-center">
+            
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="bg-white overflow-hidden shadow rounded-lg">
                 <div className="p-5">
                   <div className="flex items-center">
@@ -778,8 +468,8 @@ ORDER BY month DESC;`;
                     </div>
                     <div className="ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Total Students</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats.totalStudents}</dd>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Total Employees</dt>
+                        <dd className="text-lg font-medium text-gray-900">{stats.totalEmployees}</dd>
                       </dl>
                     </div>
                   </div>
@@ -790,12 +480,12 @@ ORDER BY month DESC;`;
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <MapPin className="h-6 w-6 text-green-400" />
+                      <TrendingUp className="h-6 w-6 text-green-400" />
                     </div>
                     <div className="ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Occupied Seats</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats.occupiedSeats}/{stats.totalSeats}</dd>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Total Paid</dt>
+                        <dd className="text-lg font-medium text-gray-900">${stats.totalPaid.toLocaleString()}</dd>
                       </dl>
                     </div>
                   </div>
@@ -808,10 +498,26 @@ ORDER BY month DESC;`;
                     <div className="flex-shrink-0">
                       <AlertCircle className="h-6 w-6 text-red-400" />
                     </div>
-                    <div className="ml-0 flex-1">
+                    <div className="ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Pending Fees</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats.feesPending}</dd>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Pending Payments</dt>
+                        <dd className="text-lg font-medium text-gray-900">{stats.pendingPayments}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Building2 className="h-6 w-6 text-purple-400" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Departments</dt>
+                        <dd className="text-lg font-medium text-gray-900">{stats.totalDepartments}</dd>
                       </dl>
                     </div>
                   </div>
@@ -820,62 +526,83 @@ ORDER BY month DESC;`;
             </div>
 
             {/* Additional Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Plan Distribution</h3>
-                    <button
-                      onClick={() => setShowTimingModal(true)}
-                      className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 flex items-center space-x-2"
-                    >
-                      <Clock size={14} />
-                      <span>Settings</span>
-                    </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Monthly Overview</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
+                    <span className="text-sm font-medium">This Month Paid</span>
+                    <span className="text-lg font-bold text-blue-600">${stats.thisMonthPaid.toLocaleString()}</span>
                   </div>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-                      <span className="text-sm font-medium">Full Time ({convertTo12Hour(timingForm.fullTimeStart)} - {convertTo12Hour(timingForm.fullTimeEnd)})</span>
-                      <span className="text-lg font-bold text-blue-600">{stats.fullTimeStudents}</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-                      <span className="text-sm font-medium">Half Time ({convertTo12Hour(timingForm.halfTimeStart)} - {convertTo12Hour(timingForm.halfTimeEnd)})</span>
-                      <span className="text-lg font-bold text-green-600">{stats.halfTimeStudents}</span>
-                    </div>
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded">
+                    <span className="text-sm font-medium">Average Salary</span>
+                    <span className="text-lg font-bold text-green-600">${stats.averageSalary.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-red-50 rounded">
+                    <span className="text-sm font-medium">Pending Amount</span>
+                    <span className="text-lg font-bold text-red-600">${stats.pendingAmount.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
 
-
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      resetForm();
+                      setShowModal(true);
+                    }}
+                    className="w-full bg-blue-500 text-white px-4 py-3 rounded hover:bg-blue-600 flex items-center justify-center space-x-2"
+                  >
+                    <Plus size={20} />
+                    <span>Add New Employee</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('employees')}
+                    className="w-full bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 flex items-center justify-center space-x-2"
+                  >
+                    <Users size={20} />
+                    <span>View All Employees</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('departments')}
+                    className="w-full bg-purple-500 text-white px-4 py-3 rounded hover:bg-purple-600 flex items-center justify-center space-x-2"
+                  >
+                    <Building2 size={20} />
+                    <span>View Departments</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Students with Pending Fees */}
-            {stats.feesPending > 0 && (
-              <div className="bg-white shadow rounded-lg mb-8">
+            {/* Employees with Pending Payments */}
+            {stats.pendingPayments > 0 && (
+              <div className="bg-white shadow rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                     <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                    Students with Pending Fees
+                    Employees with Pending Payments
                   </h3>
                   <div className="space-y-3">
-                    {students.filter(s => !s.feesPaid).map(student => (
-                      <div key={student.id} className="flex items-center justify-between p-3 bg-red-50 rounded">
+                    {employees.filter(e => e.paymentStatus === 'Pending').map(employee => (
+                      <div key={employee.id} className="flex items-center justify-between p-3 bg-red-50 rounded">
                         <div className="flex items-center space-x-3">
                           <div>
-                            <p className="font-medium">{student.name}</p>
-                            <p className="text-sm text-gray-600">Seat: {student.seatNumber} | Plan: {student.planType}</p>
+                            <p className="font-medium">{employee.name}</p>
+                            <p className="text-sm text-gray-600">{employee.department} | {employee.position}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-red-600">₹{student.feeAmount}</span>
+                          <span className="text-sm font-medium text-red-600">${employee.baseSalary.toLocaleString()}</span>
                           <button
-                            onClick={() => toggleFeePayment(student.id)}
+                            onClick={() => openPaymentModal(employee)}
                             className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
                           >
-                            Mark Paid
+                            Pay Now
                           </button>
                           <button
-                            onClick={() => viewStudentProfile(student)}
+                            onClick={() => viewEmployeeProfile(employee)}
                             className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
                           >
                             <Eye size={14} />
@@ -887,46 +614,14 @@ ORDER BY month DESC;`;
                 </div>
               </div>
             )}
-
-            {/* Recent Activities */}
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Students</h3>
-                <div className="space-y-3">
-                  {students.slice(-5).reverse().map(student => (
-                    <div key={student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                      <div className="flex items-center space-x-3">
-                        <div>
-                          <p className="font-medium">{student.name}</p>
-                          <p className="text-sm text-gray-600">Joined: {student.joinDate} | Seat: {student.seatNumber}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 text-xs rounded ${
-                          student.feesPaid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {student.feesPaid ? 'Paid' : 'Pending'}
-                        </span>
-                        <button
-                          onClick={() => viewStudentProfile(student)}
-                          className="text-blue-500 hover:text-blue-600"
-                        >
-                          <Eye size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
-        {/* Students View */}
-        {currentView === 'students' && (
+        {/* Employees View */}
+        {currentView === 'employees' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Students</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Employees</h2>
               <button
                 onClick={() => {
                   resetForm();
@@ -935,7 +630,7 @@ ORDER BY month DESC;`;
                 className="btn btn-primary"
               >
                 <Plus size={16} />
-                <span>Add Student</span>
+                <span>Add Employee</span>
               </button>
             </div>
 
@@ -944,156 +639,123 @@ ORDER BY month DESC;`;
               <Search className="search-icon h-4 w-4" />
               <input
                 type="text"
-                placeholder="Search students by name, email, phone or seat number..."
+                placeholder="Search employees by name, email, ID, department or position..."
                 className="search-input"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
-            {/* Students Table */}
+            {/* Employees Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="table-container">
                 <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Student
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Contact
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Plan & Seat
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Study Timing
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fee Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredStudents.map((student) => (
-                    <tr key={student.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                          <div className="text-sm text-gray-500">Joined: {student.joinDate}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{student.email}</div>
-                        <div className="text-sm text-gray-500">{student.phone}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize">{student.planType}</div>
-                        <div className="text-sm text-gray-500">Seat: {student.seatNumber}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {getStudentDisplayTiming(student)}
-                        </div>
-                        {student.useCustomTiming && (
-                          <div className="text-xs text-purple-600 font-medium">Custom Timing</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            student.feesPaid
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {student.feesPaid ? 'Paid' : 'Pending'}
-                        </span>
-                        <div className="text-xs text-gray-500 mt-1">₹{student.feeAmount}/month</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => viewStudentProfile(student)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="View Profile"
-                          >
-                            <Eye size={16} />
-                          </button>
-                          <button
-                            onClick={() => openStudentTimingModal(student)}
-                            className="text-purple-600 hover:text-purple-900"
-                            title="Change Study Timing"
-                          >
-                            ⏰
-                          </button>
-                          <button
-                            onClick={() => handleEdit(student)}
-                            className="text-green-600 hover:text-green-900"
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => toggleFeePayment(student.id)}
-                            className={`${student.feesPaid ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
-                            title={student.feesPaid ? 'Mark Unpaid' : 'Mark Paid'}
-                          >
-                            <CreditCard size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(student)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Employee
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Department & Position
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Salary
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredEmployees.map((employee) => (
+                      <tr key={employee.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                            <div className="text-sm text-gray-500">ID: {employee.employeeId}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{employee.email}</div>
+                          <div className="text-sm text-gray-500">{employee.phone}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{employee.department}</div>
+                          <div className="text-sm text-gray-500">{employee.position}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">${employee.baseSalary.toLocaleString()}</div>
+                          <div className="text-xs text-gray-500">per month</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              employee.paymentStatus === 'Paid'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {employee.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => viewEmployeeProfile(employee)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="View Profile"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(employee)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Edit"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => openPaymentModal(employee)}
+                              className="text-purple-600 hover:text-purple-900"
+                              title="Record Payment"
+                            >
+                              <CreditCard size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(employee)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
               
-              {filteredStudents.length === 0 && (
+              {filteredEmployees.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  {searchTerm ? 'No students found matching your search.' : 'No students registered yet.'}
+                  {searchTerm ? 'No employees found matching your search.' : 'No employees registered yet.'}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Seat Map View */}
-        {currentView === 'seats' && (
+        {/* Departments View */}
+        {currentView === 'departments' && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Seat Map</h2>
-            
-            {/* Legend */}
-            <div className="bg-white p-4 rounded-lg shadow mb-6">
-              <h3 className="text-lg font-medium mb-3">Legend</h3>
-              <div className="flex space-x-6">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-                  <span className="text-sm">Available</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-                  <span className="text-sm">Occupied</span>
-                </div>
-              </div>
-              <p className="text-xs text-gray-600 mt-2">Click on occupied seats to view student details</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow">
-              <div className="flex justify-center">
-                {renderSeatMap()}
-              </div>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Departments</h2>
+            {renderDepartmentView()}
           </div>
         )}
 
@@ -1108,51 +770,36 @@ ORDER BY month DESC;`;
                   <Database className="mr-2" size={20} />
                   Database Statistics
                 </h3>
-                {(() => {
-                  const stats = getDatabaseStats();
-                  return stats ? (
-                                      <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span>Total Students:</span>
-                      <span className="font-semibold">{stats.totalStudents}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Active Students:</span>
-                      <span className="font-semibold">{stats.activeStudents}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Seats:</span>
-                      <span className="font-semibold">{stats.totalSeats}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Occupied Seats:</span>
-                      <span className="font-semibold">{stats.occupiedSeats}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Available Seats:</span>
-                      <span className="font-semibold">{stats.availableSeats}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Revenue:</span>
-                      <span className="font-semibold text-green-600">₹{stats.totalRevenue}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Payments:</span>
-                      <span className="font-semibold text-blue-600">{stats.totalPayments}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>This Month Revenue:</span>
-                      <span className="font-semibold text-green-600">₹{stats.thisMonthRevenue}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Pending Fees:</span>
-                      <span className="font-semibold text-red-600">{stats.pendingFees}</span>
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span>Total Employees:</span>
+                    <span className="font-semibold">{stats.totalEmployees}</span>
                   </div>
-                  ) : (
-                    <p className="text-gray-500">Unable to load statistics</p>
-                  );
-                })()}
+                  <div className="flex justify-between">
+                    <span>Active Employees:</span>
+                    <span className="font-semibold">{stats.activeEmployees}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Departments:</span>
+                    <span className="font-semibold">{stats.totalDepartments}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Paid:</span>
+                    <span className="font-semibold text-green-600">${stats.totalPaid.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>This Month Paid:</span>
+                    <span className="font-semibold text-green-600">${stats.thisMonthPaid.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Pending Payments:</span>
+                    <span className="font-semibold text-red-600">{stats.pendingPayments}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Average Salary:</span>
+                    <span className="font-semibold text-blue-600">${stats.averageSalary.toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white p-6 rounded-lg shadow">
@@ -1166,7 +813,7 @@ ORDER BY month DESC;`;
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `vishwkarma-library-backup-${new Date().toISOString().split('T')[0]}.json`;
+                        a.download = `employee-payroll-backup-${new Date().toISOString().split('T')[0]}.json`;
                         a.click();
                         URL.revokeObjectURL(url);
                         showNotification('Data exported successfully!', 'success');
@@ -1191,8 +838,8 @@ ORDER BY month DESC;`;
                           const reader = new FileReader();
                           reader.onload = (e) => {
                             if (importData(e.target.result)) {
-                              setStudents(getAllStudents());
-                              setSeatLayout(getSeatLayout());
+                              setEmployees(getAllEmployees());
+                              setDepartments(getAllDepartments());
                               showNotification('Data imported successfully!', 'success');
                             } else {
                               showNotification('Error importing data', 'error');
@@ -1213,8 +860,8 @@ ORDER BY month DESC;`;
                     onClick={() => {
                       if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
                         localStorage.clear();
-                        setStudents([]);
-                        setSeatLayout({ total: 80, occupied: [], fullTimeSeats: [], halfTimeSeats: [] });
+                        setEmployees([]);
+                        setDepartments([]);
                         showNotification('All data cleared', 'success');
                       }
                     }}
@@ -1227,17 +874,15 @@ ORDER BY month DESC;`;
             </div>
           </div>
         )}
-
-        {/* SQL Schema view removed */}
       </main>
 
-      {/* Add/Edit Student Modal */}
+      {/* Add/Edit Employee Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
           <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">
-                {editingStudent ? 'Edit Student' : 'Add New Student'}
+                {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
               </h3>
               <button
                 onClick={() => {
@@ -1250,7 +895,7 @@ ORDER BY month DESC;`;
               </button>
             </div>
 
-            <form onSubmit={handleAddStudent}>
+            <form onSubmit={handleAddEmployee}>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Name *</label>
@@ -1260,208 +905,143 @@ ORDER BY month DESC;`;
                     className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
                       formErrors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
                     }`}
-                    value={studentForm.name}
+                    value={employeeForm.name}
                     onChange={(e) => {
-                      setStudentForm(prev => ({ ...prev, name: e.target.value }));
+                      setEmployeeForm(prev => ({ ...prev, name: e.target.value }));
                       if (formErrors.name) {
                         setFormErrors(prev => ({ ...prev, name: '' }));
                       }
                     }}
-                    placeholder="Enter student name"
+                    placeholder="Enter employee name"
                   />
                   {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+                  <label className="block text-sm font-medium text-gray-700">Email *</label>
                   <input
                     type="email"
                     required
-                    className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
-                      formErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
                     }`}
-                    value={studentForm.email}
+                    value={employeeForm.email}
                     onChange={(e) => {
-                      setStudentForm(prev => ({ ...prev, email: e.target.value }));
+                      setEmployeeForm(prev => ({ ...prev, email: e.target.value }));
                       if (formErrors.email) {
                         setFormErrors(prev => ({ ...prev, email: '' }));
                       }
                     }}
                     placeholder="Enter email address"
                   />
-                  {formErrors.email && <p className="text-red-500 text-xs mt-2 flex items-center">
-                    <AlertCircle size={12} className="mr-1" />
-                    {formErrors.email}
-                  </p>}
+                  {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
+                  <label className="block text-sm font-medium text-gray-700">Phone *</label>
                   <input
                     type="text"
                     required
-                    placeholder="+91 XXXXXXXXXX"
-                    className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
-                      formErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300'
                     }`}
-                    value={studentForm.phone}
+                    value={employeeForm.phone}
                     onChange={(e) => {
-                      setStudentForm(prev => ({ ...prev, phone: e.target.value }));
+                      setEmployeeForm(prev => ({ ...prev, phone: e.target.value }));
                       if (formErrors.phone) {
                         setFormErrors(prev => ({ ...prev, phone: '' }));
                       }
                     }}
+                    placeholder="Enter phone number"
                   />
-                  {formErrors.phone && <p className="text-red-500 text-xs mt-2 flex items-center">
-                    <AlertCircle size={12} className="mr-1" />
-                    {formErrors.phone}
-                  </p>}
-                  <p className="text-xs text-gray-500 mt-2">Format: +91 XXXXXXXXXX</p>
+                  {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
                 </div>
 
-                                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-                    <textarea
-                      className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 hover:border-gray-400"
-                      rows="2"
-                      value={studentForm.address}
-                      onChange={(e) => setStudentForm(prev => ({ ...prev, address: e.target.value }))}
-                      placeholder="Enter full address"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Plan Type *</label>
-                                      <select
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Department *</label>
+                  <select
                     required
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 hover:border-gray-400"
-                    value={studentForm.planType}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.department ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    value={employeeForm.department}
                     onChange={(e) => {
-                      setStudentForm(prev => ({ ...prev, planType: e.target.value, seatNumber: '' }));
-                      if (formErrors.seatNumber) {
-                        setFormErrors(prev => ({ ...prev, seatNumber: '' }));
+                      setEmployeeForm(prev => ({ ...prev, department: e.target.value }));
+                      if (formErrors.department) {
+                        setFormErrors(prev => ({ ...prev, department: '' }));
                       }
                     }}
                   >
-                                            <option value="half-time">Half Time - ₹500/month ({convertTo12Hour(timingForm.halfTimeStart)} - {convertTo12Hour(timingForm.halfTimeEnd)})</option>
-                        <option value="full-time">Full Time - ₹800/month ({convertTo12Hour(timingForm.fullTimeStart)} - {convertTo12Hour(timingForm.fullTimeEnd)})</option>
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.name}>{dept.name}</option>
+                    ))}
                   </select>
-                  </div>
+                  {formErrors.department && <p className="text-red-500 text-xs mt-1">{formErrors.department}</p>}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Seat Number *</label>
-                    <select
-                      required
-                      className={`block w-full px-4 py-3 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
-                        formErrors.seatNumber ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      value={studentForm.seatNumber}
-                      onChange={(e) => {
-                        setStudentForm(prev => ({ ...prev, seatNumber: e.target.value }));
-                        if (formErrors.seatNumber) {
-                          setFormErrors(prev => ({ ...prev, seatNumber: '' }));
-                        }
-                      }}
-                    >
-                      <option value="">Select Available Seat</option>
-                      {getAvailableSeats(studentForm.planType).map(seat => (
-                        <option key={seat} value={seat}>{seat}</option>
-                      ))}
-                    </select>
-                    {formErrors.seatNumber && <p className="text-red-500 text-xs mt-2 flex items-center">
-                      <AlertCircle size={12} className="mr-1" />
-                      {formErrors.seatNumber}
-                    </p>}
-                    <p className="text-xs text-gray-500 mt-2">
-                      Available seats: {getAvailableSeats(studentForm.planType).length}
-                    </p>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Position *</label>
+                  <input
+                    type="text"
+                    required
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.position ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    value={employeeForm.position}
+                    onChange={(e) => {
+                      setEmployeeForm(prev => ({ ...prev, position: e.target.value }));
+                      if (formErrors.position) {
+                        setFormErrors(prev => ({ ...prev, position: '' }));
+                      }
+                    }}
+                    placeholder="Enter position/title"
+                  />
+                  {formErrors.position && <p className="text-red-500 text-xs mt-1">{formErrors.position}</p>}
+                </div>
 
-                  {/* Custom Timing Section */}
-                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <input
-                        type="checkbox"
-                        id="useCustomTiming"
-                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                        checked={studentForm.useCustomTiming}
-                        onChange={(e) => setStudentForm(prev => ({ 
-                          ...prev, 
-                          useCustomTiming: e.target.checked,
-                          customStartTime: e.target.checked ? studentForm.customStartTime || '09:00' : '',
-                          customEndTime: e.target.checked ? studentForm.customEndTime || '17:00' : ''
-                        }))}
-                      />
-                      <label htmlFor="useCustomTiming" className="text-sm font-medium text-purple-700">
-                        Use Custom Study Timing
-                      </label>
-                    </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Base Salary ($/month) *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.baseSalary ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    value={employeeForm.baseSalary}
+                    onChange={(e) => {
+                      setEmployeeForm(prev => ({ ...prev, baseSalary: e.target.value }));
+                      if (formErrors.baseSalary) {
+                        setFormErrors(prev => ({ ...prev, baseSalary: '' }));
+                      }
+                    }}
+                    placeholder="Enter base salary"
+                  />
+                  {formErrors.baseSalary && <p className="text-red-500 text-xs mt-1">{formErrors.baseSalary}</p>}
+                </div>
 
-                    {studentForm.useCustomTiming && (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-purple-700 mb-1">Start Time</label>
-                            <input
-                              type="time"
-                              required={studentForm.useCustomTiming}
-                              className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                              value={studentForm.customStartTime}
-                              onChange={(e) => setStudentForm(prev => ({ ...prev, customStartTime: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-purple-700 mb-1">End Time</label>
-                            <input
-                              type="time"
-                              required={studentForm.useCustomTiming}
-                              className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                              value={studentForm.customEndTime}
-                              onChange={(e) => setStudentForm(prev => ({ ...prev, customEndTime: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-                        
-                        {studentForm.customStartTime && studentForm.customEndTime && (
-                          <div className="p-2 bg-white rounded border border-purple-200">
-                            <div className="text-xs text-purple-700">
-                              <p><strong>Custom Timing:</strong> {convertTo12Hour(studentForm.customStartTime)} - {convertTo12Hour(studentForm.customEndTime)}</p>
-                              <p className="text-purple-600 mt-1">
-                                This will override the default {studentForm.planType} plan timing
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Bank Account</label>
+                  <input
+                    type="text"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    value={employeeForm.bankAccount}
+                    onChange={(e) => setEmployeeForm(prev => ({ ...prev, bankAccount: e.target.value }))}
+                    placeholder="Enter bank account number"
+                  />
+                </div>
 
-                <div className="flex items-center space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      checked={studentForm.feesPaid}
-                      onChange={(e) => setStudentForm(prev => ({ ...prev, feesPaid: e.target.checked }))}
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Fees Paid for this month</span>
-                  </label>
-
-                  {studentForm.feesPaid && (
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Payment Method</label>
-                      <select
-                        className="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        value={studentForm.paymentMethod}
-                        onChange={(e) => setStudentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                      >
-                        <option value="Cash">Cash</option>
-                        <option value="UPI">UPI</option>
-                        <option value="Card">Card</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                      </select>
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <textarea
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    rows="2"
+                    value={employeeForm.address}
+                    onChange={(e) => setEmployeeForm(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Enter full address"
+                  />
                 </div>
               </div>
 
@@ -1480,7 +1060,7 @@ ORDER BY month DESC;`;
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                  {editingStudent ? 'Update Student' : 'Add Student'}
+                  {editingEmployee ? 'Update Employee' : 'Add Employee'}
                 </button>
               </div>
             </form>
@@ -1488,14 +1068,14 @@ ORDER BY month DESC;`;
         </div>
       )}
 
-                    {/* Student Profile Modal */}
-      {showStudentProfile && selectedStudent && (
+      {/* Employee Profile Modal */}
+      {showEmployeeProfile && selectedEmployee && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
           <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold">Student Profile</h3>
+              <h3 className="text-xl font-semibold">Employee Profile</h3>
               <button
-                onClick={() => setShowStudentProfile(false)}
+                onClick={() => setShowEmployeeProfile(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={24} />
@@ -1503,7 +1083,7 @@ ORDER BY month DESC;`;
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Student Details */}
+              {/* Employee Details */}
               <div className="lg:col-span-1">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="font-semibold text-lg mb-4 flex items-center">
@@ -1512,91 +1092,76 @@ ORDER BY month DESC;`;
                   </h4>
                   <div className="space-y-3">
                     <div>
+                      <label className="text-sm font-medium text-gray-600">Employee ID</label>
+                      <p className="text-gray-900 font-mono">{selectedEmployee.employeeId}</p>
+                    </div>
+                    <div>
                       <label className="text-sm font-medium text-gray-600">Name</label>
-                      <p className="text-gray-900">{selectedStudent.name}</p>
+                      <p className="text-gray-900">{selectedEmployee.name}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Email</label>
                       <p className="text-gray-900 flex items-center">
                         <Mail className="mr-1" size={14} />
-                        {selectedStudent.email}
+                        {selectedEmployee.email}
                       </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Phone</label>
                       <p className="text-gray-900 flex items-center">
                         <Phone className="mr-1" size={14} />
-                        {selectedStudent.phone}
+                        {selectedEmployee.phone}
                       </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Address</label>
-                      <p className="text-gray-900">{selectedStudent.address || 'Not provided'}</p>
+                      <p className="text-gray-900">{selectedEmployee.address || 'Not provided'}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Join Date</label>
+                      <label className="text-sm font-medium text-gray-600">Joining Date</label>
                       <p className="text-gray-900 flex items-center">
                         <Calendar className="mr-1" size={14} />
-                        {selectedStudent.joinDate}
+                        {selectedEmployee.joiningDate}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                                <div className="bg-blue-50 rounded-lg p-4 mt-4">
+                <div className="bg-blue-50 rounded-lg p-4 mt-4">
                   <h4 className="font-semibold text-lg mb-4 flex items-center">
-                    <MapPin className="mr-2" size={20} />
-                    Plan Details
+                    <Briefcase className="mr-2" size={20} />
+                    Employment Details
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Plan Type</label>
-                      <p className="text-gray-900 capitalize">{selectedStudent.planType}</p>
+                      <label className="text-sm font-medium text-gray-600">Department</label>
+                      <p className="text-gray-900">{selectedEmployee.department}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Study Hours</label>
-                      <p className="text-gray-900 flex items-center">
-                        <Clock className="mr-1" size={14} />
-                        {getStudentDisplayTiming(selectedStudent)}
-                      </p>
-                      <div className="mt-1 flex items-center space-x-3">
-                        {selectedStudent.useCustomTiming && (
-                          <span className="text-purple-600 text-sm font-medium flex items-center">✨ Custom Timing Applied</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openStudentTimingModal(selectedStudent);
-                            setShowStudentProfile(false);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 text-sm underline"
-                          title="Manage this student's time slot"
-                        >
-                          Manage time slot
-                        </button>
-                      </div>
+                      <label className="text-sm font-medium text-gray-600">Position</label>
+                      <p className="text-gray-900">{selectedEmployee.position}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Seat Number</label>
-                      <p className="text-gray-900 font-mono">{selectedStudent.seatNumber}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Monthly Fee</label>
+                      <label className="text-sm font-medium text-gray-600">Base Salary</label>
                       <p className="text-gray-900 flex items-center">
                         <DollarSign className="mr-1" size={14} />
-                        ₹{selectedStudent.feeAmount}
+                        ${selectedEmployee.baseSalary.toLocaleString()}/month
                       </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Bank Account</label>
+                      <p className="text-gray-900">{selectedEmployee.bankAccount || 'Not provided'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Status</label>
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          selectedStudent.feesPaid
+                          selectedEmployee.paymentStatus === 'Paid'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {selectedStudent.feesPaid ? 'Fees Paid' : 'Fees Pending'}
+                        {selectedEmployee.paymentStatus}
                       </span>
                     </div>
                   </div>
@@ -1613,43 +1178,32 @@ ORDER BY month DESC;`;
                     </h4>
                   </div>
                   <div className="p-4">
-                    {selectedStudent.paymentHistory && selectedStudent.paymentHistory.length > 0 ? (
+                    {selectedEmployee.paymentHistory && selectedEmployee.paymentHistory.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full">
                           <thead>
                             <tr className="border-b">
-                              <th className="text-left py-2 text-sm font-medium text-gray-600">Payment ID</th>
                               <th className="text-left py-2 text-sm font-medium text-gray-600">Date</th>
                               <th className="text-left py-2 text-sm font-medium text-gray-600">Month</th>
-                              <th className="text-left py-2 text-sm font-medium text-gray-600">Amount</th>
+                              <th className="text-left py-2 text-sm font-medium text-gray-600">Base</th>
+                              <th className="text-left py-2 text-sm font-medium text-gray-600">Deductions</th>
+                              <th className="text-left py-2 text-sm font-medium text-gray-600">Bonuses</th>
+                              <th className="text-left py-2 text-sm font-medium text-gray-600">Net Salary</th>
                               <th className="text-left py-2 text-sm font-medium text-gray-600">Method</th>
-                              <th className="text-left py-2 text-sm font-medium text-gray-600">Notes</th>
-                              <th className="text-left py-2 text-sm font-medium text-gray-600">Status</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedStudent.paymentHistory.map((payment, index) => (
+                            {selectedEmployee.paymentHistory.map((payment, index) => (
                               <tr key={payment.paymentId || index} className="border-b last:border-b-0 hover:bg-gray-50">
-                                <td className="py-2 text-sm font-mono text-gray-500">#{payment.paymentId || (index + 1)}</td>
                                 <td className="py-2 text-sm">{payment.date}</td>
                                 <td className="py-2 text-sm font-medium">{payment.month}</td>
-                                <td className="py-2 text-sm font-semibold text-green-600">₹{payment.amount}</td>
+                                <td className="py-2 text-sm">${payment.baseSalary.toLocaleString()}</td>
+                                <td className="py-2 text-sm text-red-600">-${payment.deductions.toLocaleString()}</td>
+                                <td className="py-2 text-sm text-green-600">+${payment.bonuses.toLocaleString()}</td>
+                                <td className="py-2 text-sm font-semibold text-blue-600">${payment.netSalary.toLocaleString()}</td>
                                 <td className="py-2 text-sm">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${
-                                    payment.method === 'Cash' ? 'bg-green-100 text-green-800' :
-                                    payment.method === 'UPI' ? 'bg-blue-100 text-blue-800' :
-                                    payment.method === 'Card' ? 'bg-purple-100 text-purple-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
+                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
                                     {payment.method}
-                                  </span>
-                                </td>
-                                <td className="py-2 text-sm text-gray-600 max-w-32 truncate" title={payment.notes}>
-                                  {payment.notes || '-'}
-                                </td>
-                                <td className="py-2">
-                                  <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                                    {payment.status}
                                   </span>
                                 </td>
                               </tr>
@@ -1664,18 +1218,12 @@ ORDER BY month DESC;`;
                     <div className="mt-4 pt-4 border-t">
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <div className="text-2xl font-bold text-green-600">₹{selectedStudent.totalPaid}</div>
+                          <div className="text-2xl font-bold text-green-600">${selectedEmployee.totalPaid.toLocaleString()}</div>
                           <div className="text-sm text-gray-600">Total Paid</div>
                         </div>
                         <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <div className="text-2xl font-bold text-blue-600">{selectedStudent.paymentHistory.length}</div>
+                          <div className="text-2xl font-bold text-blue-600">{selectedEmployee.paymentHistory.length}</div>
                           <div className="text-sm text-gray-600">Payments Made</div>
-                        </div>
-                      </div>
-                      
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-sm text-gray-600">
-                          <strong>Payment History:</strong> Complete record of all payments from {selectedStudent.joinDate} to present
                         </div>
                       </div>
                     </div>
@@ -1684,8 +1232,8 @@ ORDER BY month DESC;`;
                     <div className="mt-6 flex space-x-3">
                       <button
                         onClick={() => {
-                          setShowStudentProfile(false);
-                          handleEdit(selectedStudent);
+                          setShowEmployeeProfile(false);
+                          handleEdit(selectedEmployee);
                         }}
                         className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center space-x-2"
                       >
@@ -1695,17 +1243,9 @@ ORDER BY month DESC;`;
                       
                       <button
                         onClick={() => {
-                          setShowStudentProfile(false);
-                          openStudentTimingModal(selectedStudent);
+                          setShowEmployeeProfile(false);
+                          openPaymentModal(selectedEmployee);
                         }}
-                        className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 flex items-center space-x-2"
-                      >
-                        ⏰
-                        <span>Change Timing</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => openPaymentModal(selectedStudent)}
                         className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center space-x-2"
                       >
                         <CreditCard size={16} />
@@ -1721,7 +1261,7 @@ ORDER BY month DESC;`;
       )}
 
       {/* Payment Modal */}
-      {showPaymentModal && selectedStudent && (
+      {showPaymentModal && selectedEmployee && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
           <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
@@ -1736,40 +1276,86 @@ ORDER BY month DESC;`;
 
             <div className="mb-4 p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Student:</strong> {selectedStudent.name} (Seat: {selectedStudent.seatNumber})
+                <strong>Employee:</strong> {selectedEmployee.name} ({selectedEmployee.employeeId})
               </p>
               <p className="text-sm text-blue-800">
-                <strong>Plan:</strong> {selectedStudent.planType} - ₹{selectedStudent.feeAmount}/month
+                <strong>Department:</strong> {selectedEmployee.department} | {selectedEmployee.position}
               </p>
             </div>
 
             <form onSubmit={handlePaymentSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Month/Period *</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={paymentForm.month}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, month: e.target.value }))}
+                    placeholder="e.g., January 2024"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Base Salary ($) *</label>
                   <input
                     type="number"
                     step="0.01"
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={paymentForm.amount}
-                    onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Enter amount"
+                    value={paymentForm.baseSalary}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, baseSalary: e.target.value }))}
+                    placeholder="Enter base salary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Deductions ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={paymentForm.deductions}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, deductions: e.target.value }))}
+                    placeholder="Enter deductions (tax, insurance, etc.)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bonuses ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={paymentForm.bonuses}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, bonuses: e.target.value }))}
+                    placeholder="Enter bonuses"
+                  />
+                </div>
+
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <label className="block text-sm font-medium text-green-700 mb-1">Net Salary</label>
+                  <div className="text-2xl font-bold text-green-600">
+                    ${parseFloat(paymentForm.netSalary || 0).toLocaleString()}
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">
+                    Base ({paymentForm.baseSalary || 0}) - Deductions ({paymentForm.deductions || 0}) + Bonuses ({paymentForm.bonuses || 0})
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
                   <select
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={paymentForm.method}
                     onChange={(e) => setPaymentForm(prev => ({ ...prev, method: e.target.value }))}
                   >
-                    <option value="Cash">Cash</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
                     <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Check">Check</option>
+                    <option value="UPI">UPI</option>
                   </select>
                 </div>
 
@@ -1804,230 +1390,8 @@ ORDER BY month DESC;`;
           </div>
         </div>
       )}
-
-      {/* Timing Settings Modal */}
-      {showTimingModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
-          <div className="relative top-20 mx-auto p-6 border w-11/12 max-w-lg shadow-2xl rounded-2xl bg-white/95 backdrop-blur-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                ⏰ Study Timings Settings
-              </h3>
-              <button
-                onClick={() => setShowTimingModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <form onSubmit={handleTimingSubmit}>
-              <div className="space-y-6">
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-3">Full Time Plan Settings</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-blue-700 mb-2">Start Time</label>
-                      <input
-                        type="time"
-                        required
-                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={timingForm.fullTimeStart}
-                        onChange={(e) => setTimingForm(prev => ({ ...prev, fullTimeStart: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-blue-700 mb-2">End Time</label>
-                      <input
-                        type="time"
-                        required
-                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={timingForm.fullTimeEnd}
-                        onChange={(e) => setTimingForm(prev => ({ ...prev, fullTimeEnd: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <h4 className="font-semibold text-green-800 mb-3">Half Time Plan Settings</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-green-700 mb-2">Start Time</label>
-                      <input
-                        type="time"
-                        required
-                        className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={timingForm.halfTimeStart}
-                        onChange={(e) => setTimingForm(prev => ({ ...prev, halfTimeStart: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-green-700 mb-2">End Time</label>
-                      <input
-                        type="time"
-                        required
-                        className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={timingForm.halfTimeEnd}
-                        onChange={(e) => setTimingForm(prev => ({ ...prev, halfTimeEnd: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <h4 className="font-semibold text-yellow-800 mb-2">Current Settings</h4>
-                  <div className="text-sm text-yellow-700">
-                    <p><strong>Full Time:</strong> {convertTo12Hour(timingForm.fullTimeStart)} - {convertTo12Hour(timingForm.fullTimeEnd)}</p>
-                    <p><strong>Half Time:</strong> {convertTo12Hour(timingForm.halfTimeStart)} - {convertTo12Hour(timingForm.halfTimeEnd)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowTimingModal(false)}
-                  className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm font-medium hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  Save Timings
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Student Timing Modal */}
-      {showStudentTimingModal && selectedStudentForTiming && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-40">
-          <div className="relative top-20 mx-auto p-6 border w-11/12 max-w-lg shadow-2xl rounded-2xl bg-white/95 backdrop-blur-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                ⏰ Customize Study Timing
-              </h3>
-              <button
-                onClick={() => setShowStudentTimingModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-semibold text-gray-800 mb-2">Student Information</h4>
-              <div className="text-sm text-gray-600">
-                <p><strong>Name:</strong> {selectedStudentForTiming.name}</p>
-                <p><strong>Current Plan:</strong> {selectedStudentForTiming.planType}</p>
-                                        <p><strong>Default Timing:</strong> {
-                          selectedStudentForTiming.planType === 'full-time' 
-                            ? `${convertTo12Hour(timingForm.fullTimeStart)} - ${convertTo12Hour(timingForm.fullTimeEnd)}`
-                            : `${convertTo12Hour(timingForm.halfTimeStart)} - ${convertTo12Hour(timingForm.halfTimeEnd)}`
-                        }</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleStudentTimingSubmit}>
-              <div className="space-y-6">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="useCustomTiming"
-                    checked={studentTimingForm.useCustomTiming}
-                    onChange={(e) => setStudentTimingForm(prev => ({ 
-                      ...prev, 
-                      useCustomTiming: e.target.checked,
-                      customStartTime: e.target.checked ? studentTimingForm.customStartTime || '09:00' : '',
-                      customEndTime: e.target.checked ? studentTimingForm.customEndTime || '17:00' : ''
-                    }))}
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="useCustomTiming" className="text-sm font-medium text-gray-700">
-                    Use Custom Study Timing
-                  </label>
-                </div>
-
-                {studentTimingForm.useCustomTiming && (
-                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                    <h4 className="font-semibold text-purple-800 mb-3">Custom Timing</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-purple-700 mb-2">Start Time</label>
-                        <input
-                          type="time"
-                          required={studentTimingForm.useCustomTiming}
-                          className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          value={studentTimingForm.customStartTime}
-                          onChange={(e) => setStudentTimingForm(prev => ({ ...prev, customStartTime: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-purple-700 mb-2">End Time</label>
-                        <input
-                          type="time"
-                          required={studentTimingForm.useCustomTiming}
-                          className="w-full px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          value={studentTimingForm.customEndTime}
-                          onChange={(e) => setStudentTimingForm(prev => ({ ...prev, customEndTime: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                    
-                                            {studentTimingForm.customStartTime && studentTimingForm.customEndTime && (
-                          <div className="mt-3 p-3 bg-white rounded border border-purple-200">
-                            <div className="text-sm text-purple-700">
-                              <p><strong>Custom Timing:</strong> {convertTo12Hour(studentTimingForm.customStartTime)} - {convertTo12Hour(studentTimingForm.customEndTime)}</p>
-                              <p className="text-xs text-purple-600 mt-1">
-                                This will override the default {selectedStudentForTiming.planType} plan timing
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                  </div>
-                )}
-
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-2">Timing Summary</h4>
-                  <div className="text-sm text-blue-700">
-                                            <p><strong>Current Display:</strong> {getStudentDisplayTiming(selectedStudentForTiming)}</p>
-                        <p><strong>After Update:</strong> {
-                          studentTimingForm.useCustomTiming && studentTimingForm.customStartTime && studentTimingForm.customEndTime
-                            ? `${convertTo12Hour(studentTimingForm.customStartTime)} - ${convertTo12Hour(studentTimingForm.customEndTime)} (Custom)`
-                            : selectedStudentForTiming.planType === 'full-time'
-                              ? `${convertTo12Hour(timingForm.fullTimeStart)} - ${convertTo12Hour(timingForm.fullTimeEnd)}`
-                              : `${convertTo12Hour(timingForm.halfTimeStart)} - ${convertTo12Hour(timingForm.halfTimeEnd)}`
-                        }</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowStudentTimingModal(false)}
-                  className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl text-sm font-medium hover:from-purple-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  Update Timing
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default StudyLibraryManagementSystem;
+export default EmployeePaymentTracker;

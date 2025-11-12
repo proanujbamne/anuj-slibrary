@@ -1,212 +1,295 @@
-// Database utility for Vishwkarma Library Management System
+// Database utility for Employee Payment Tracking System
 // Currently uses localStorage, can be upgraded to real database later
 
 const DB_KEYS = {
-  STUDENTS: 'library_students',
-  SEAT_LAYOUT: 'library_seat_layout',
-  PAYMENTS: 'library_payments',
-  SETTINGS: 'library_settings'
+  EMPLOYEES: 'payroll_employees',
+  DEPARTMENTS: 'payroll_departments',
+  PAYMENTS: 'payroll_payments',
+  SETTINGS: 'payroll_settings'
 };
 
 // Initialize database with default data
 export const initializeDatabase = () => {
   // Check if database is already initialized
-  if (!localStorage.getItem(DB_KEYS.STUDENTS)) {
+  if (!localStorage.getItem(DB_KEYS.EMPLOYEES)) {
     // Initialize with sample data
-    const initialStudents = [
+    const initialEmployees = [
       {
         id: 1,
-        name: "Rahul Sharma",
-        email: "rahul@example.com",
-        phone: "+91 9876543210",
-        joinDate: "2024-01-15",
-        feesPaid: true,
-        planType: "full-time",
-        feeAmount: 800,
-        lastFeeDate: "2024-08-01",
-        seatNumber: "15",
+        employeeId: "EMP001",
+        name: "John Smith",
+        email: "john.smith@company.com",
+        phone: "+1 555-0101",
+        department: "Engineering",
+        position: "Senior Developer",
+        baseSalary: 5000,
+        joiningDate: "2023-01-15",
         status: "Active",
-        studyHours: "9 AM - 9 PM",
+        bankAccount: "****1234",
+        address: "123 Main St, New York, NY",
         paymentHistory: [
-          { id: 1, date: "2024-01-15", amount: 800, method: "Cash", status: "Paid", month: "Jan 2024" },
-          { id: 2, date: "2024-02-15", amount: 800, method: "UPI", status: "Paid", month: "Feb 2024" },
-          { id: 3, date: "2024-03-15", amount: 800, method: "Cash", status: "Paid", month: "Mar 2024" },
-          { id: 4, date: "2024-04-15", amount: 800, method: "UPI", status: "Paid", month: "Apr 2024" },
-          { id: 5, date: "2024-05-15", amount: 800, method: "Cash", status: "Paid", month: "May 2024" },
-          { id: 6, date: "2024-06-15", amount: 800, method: "UPI", status: "Paid", month: "Jun 2024" },
-          { id: 7, date: "2024-07-15", amount: 800, method: "Cash", status: "Paid", month: "Jul 2024" },
-          { id: 8, date: "2024-08-01", amount: 800, method: "UPI", status: "Paid", month: "Aug 2024" }
+          { 
+            id: 1, 
+            date: "2024-01-31", 
+            month: "January 2024",
+            baseSalary: 5000, 
+            deductions: 500,
+            bonuses: 1000,
+            netSalary: 5500,
+            method: "Bank Transfer", 
+            status: "Paid",
+            notes: "Regular monthly salary",
+            paymentId: 1001
+          },
+          { 
+            id: 2, 
+            date: "2024-02-29", 
+            month: "February 2024",
+            baseSalary: 5000, 
+            deductions: 500,
+            bonuses: 0,
+            netSalary: 4500,
+            method: "Bank Transfer", 
+            status: "Paid",
+            notes: "Regular monthly salary",
+            paymentId: 1002
+          }
         ],
-        totalPaid: 6400,
-        address: "123 Main St, Bhopal, MP"
+        totalPaid: 10000,
+        lastPaymentDate: "2024-02-29",
+        paymentStatus: "Paid"
       },
       {
         id: 2,
-        name: "Priya Singh",
-        email: "priya@example.com",
-        phone: "+91 9876543211",
-        joinDate: "2024-02-01",
-        feesPaid: false,
-        planType: "half-time",
-        feeAmount: 500,
-        lastFeeDate: "2024-07-01",
-        seatNumber: "08",
+        employeeId: "EMP002",
+        name: "Sarah Johnson",
+        email: "sarah.johnson@company.com",
+        phone: "+1 555-0102",
+        department: "Marketing",
+        position: "Marketing Manager",
+        baseSalary: 4500,
+        joiningDate: "2023-03-20",
         status: "Active",
-        studyHours: "9 AM - 2 PM",
+        bankAccount: "****5678",
+        address: "456 Oak Ave, Los Angeles, CA",
         paymentHistory: [
-          { id: 1, date: "2024-02-01", amount: 500, method: "Cash", status: "Paid", month: "Feb 2024" },
-          { id: 2, date: "2024-03-01", amount: 500, method: "UPI", status: "Paid", month: "Mar 2024" },
-          { id: 3, date: "2024-04-01", amount: 500, method: "Cash", status: "Paid", month: "Apr 2024" },
-          { id: 4, date: "2024-05-01", amount: 500, method: "UPI", status: "Paid", month: "May 2024" },
-          { id: 5, date: "2024-06-01", amount: 500, method: "Cash", status: "Paid", month: "Jun 2024" },
-          { id: 6, date: "2024-07-01", amount: 500, method: "UPI", status: "Paid", month: "Jul 2024" }
+          { 
+            id: 1, 
+            date: "2024-01-31", 
+            month: "January 2024",
+            baseSalary: 4500, 
+            deductions: 450,
+            bonuses: 500,
+            netSalary: 4550,
+            method: "Bank Transfer", 
+            status: "Paid",
+            notes: "Regular monthly salary + performance bonus",
+            paymentId: 1003
+          }
         ],
-        totalPaid: 3000,
-        address: "456 Park Road, Bhopal, MP"
+        totalPaid: 4550,
+        lastPaymentDate: "2024-01-31",
+        paymentStatus: "Pending"
       },
       {
         id: 3,
-        name: "Amit Kumar",
-        email: "amit@example.com",
-        phone: "+91 9876543212",
-        joinDate: "2024-02-10",
-        feesPaid: true,
-        planType: "full-time",
-        feeAmount: 800,
-        lastFeeDate: "2024-08-10",
-        seatNumber: "22",
+        employeeId: "EMP003",
+        name: "Michael Chen",
+        email: "michael.chen@company.com",
+        phone: "+1 555-0103",
+        department: "Sales",
+        position: "Sales Executive",
+        baseSalary: 4000,
+        joiningDate: "2023-06-10",
         status: "Active",
-        studyHours: "9 AM - 9 PM",
+        bankAccount: "****9012",
+        address: "789 Pine Rd, Chicago, IL",
         paymentHistory: [
-          { id: 1, date: "2024-02-10", amount: 800, method: "UPI", status: "Paid", month: "Feb 2024" },
-          { id: 2, date: "2024-03-10", amount: 800, method: "Cash", status: "Paid", month: "Mar 2024" },
-          { id: 3, date: "2024-04-10", amount: 800, method: "UPI", status: "Paid", month: "Apr 2024" },
-          { id: 4, date: "2024-05-10", amount: 800, method: "Cash", status: "Paid", month: "May 2024" },
-          { id: 5, date: "2024-06-10", amount: 800, method: "UPI", status: "Paid", month: "Jun 2024" },
-          { id: 6, date: "2024-07-10", amount: 800, method: "Cash", status: "Paid", month: "Jul 2024" },
-          { id: 7, date: "2024-08-10", amount: 800, method: "UPI", status: "Paid", month: "Aug 2024" }
+          { 
+            id: 1, 
+            date: "2024-01-31", 
+            month: "January 2024",
+            baseSalary: 4000, 
+            deductions: 400,
+            bonuses: 2000,
+            netSalary: 5600,
+            method: "Bank Transfer", 
+            status: "Paid",
+            notes: "Regular salary + sales commission",
+            paymentId: 1004
+          },
+          { 
+            id: 2, 
+            date: "2024-02-29", 
+            month: "February 2024",
+            baseSalary: 4000, 
+            deductions: 400,
+            bonuses: 1500,
+            netSalary: 5100,
+            method: "Bank Transfer", 
+            status: "Paid",
+            notes: "Regular salary + sales commission",
+            paymentId: 1005
+          }
         ],
-        totalPaid: 5600,
-        address: "789 College St, Bhopal, MP"
+        totalPaid: 10700,
+        lastPaymentDate: "2024-02-29",
+        paymentStatus: "Paid"
       }
     ];
 
-    const initialSeatLayout = {
-      total: 80,
-      occupied: ['15', '22', '08'],
-      fullTimeSeats: ['15', '22'],
-      halfTimeSeats: ['08']
-    };
+    const initialDepartments = [
+      { id: 1, name: "Engineering", employeeCount: 1 },
+      { id: 2, name: "Marketing", employeeCount: 1 },
+      { id: 3, name: "Sales", employeeCount: 1 },
+      { id: 4, name: "Human Resources", employeeCount: 0 },
+      { id: 5, name: "Finance", employeeCount: 0 }
+    ];
 
-    localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(initialStudents));
-    localStorage.setItem(DB_KEYS.SEAT_LAYOUT, JSON.stringify(initialSeatLayout));
+    localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(initialEmployees));
+    localStorage.setItem(DB_KEYS.DEPARTMENTS, JSON.stringify(initialDepartments));
     
-    console.log('Database initialized with sample data');
+    console.log('Database initialized with sample employee data');
   }
 };
 
-// Student operations
-export const getAllStudents = () => {
+// Employee operations
+export const getAllEmployees = () => {
   try {
-    const students = localStorage.getItem(DB_KEYS.STUDENTS);
-    return students ? JSON.parse(students) : [];
+    const employees = localStorage.getItem(DB_KEYS.EMPLOYEES);
+    return employees ? JSON.parse(employees) : [];
   } catch (error) {
-    console.error('Error loading students:', error);
+    console.error('Error loading employees:', error);
     return [];
   }
 };
 
-export const saveStudents = (students) => {
+export const saveEmployees = (employees) => {
   try {
-    localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(students));
+    localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(employees));
     return true;
   } catch (error) {
-    console.error('Error saving students:', error);
+    console.error('Error saving employees:', error);
     return false;
   }
 };
 
-export const addStudent = (student) => {
+export const addEmployee = (employee) => {
   try {
-    const students = getAllStudents();
-    const newStudent = { ...student, id: Math.max(...students.map(s => s.id), 0) + 1 };
-    students.push(newStudent);
-    saveStudents(students);
-    return newStudent;
+    const employees = getAllEmployees();
+    const newEmployee = { 
+      ...employee, 
+      id: Math.max(...employees.map(e => e.id), 0) + 1,
+      paymentHistory: employee.paymentHistory || [],
+      totalPaid: employee.totalPaid || 0
+    };
+    employees.push(newEmployee);
+    saveEmployees(employees);
+    
+    // Update department count
+    updateDepartmentCount(employee.department, 1);
+    
+    return newEmployee;
   } catch (error) {
-    console.error('Error adding student:', error);
+    console.error('Error adding employee:', error);
     return null;
   }
 };
 
-export const updateStudent = (updatedStudent) => {
+export const updateEmployee = (updatedEmployee) => {
   try {
-    const students = getAllStudents();
-    const index = students.findIndex(s => s.id === updatedStudent.id);
+    const employees = getAllEmployees();
+    const index = employees.findIndex(e => e.id === updatedEmployee.id);
     if (index !== -1) {
-      students[index] = updatedStudent;
-      saveStudents(students);
+      const oldDepartment = employees[index].department;
+      employees[index] = updatedEmployee;
+      saveEmployees(employees);
+      
+      // Update department counts if department changed
+      if (oldDepartment !== updatedEmployee.department) {
+        updateDepartmentCount(oldDepartment, -1);
+        updateDepartmentCount(updatedEmployee.department, 1);
+      }
+      
       return true;
     }
     return false;
   } catch (error) {
-    console.error('Error updating student:', error);
+    console.error('Error updating employee:', error);
     return false;
   }
 };
 
-export const deleteStudent = (studentId) => {
+export const deleteEmployee = (employeeId) => {
   try {
-    const students = getAllStudents();
-    const filteredStudents = students.filter(s => s.id !== studentId);
-    saveStudents(filteredStudents);
+    const employees = getAllEmployees();
+    const employee = employees.find(e => e.id === employeeId);
+    if (employee) {
+      updateDepartmentCount(employee.department, -1);
+    }
+    const filteredEmployees = employees.filter(e => e.id !== employeeId);
+    saveEmployees(filteredEmployees);
     return true;
   } catch (error) {
-    console.error('Error deleting student:', error);
+    console.error('Error deleting employee:', error);
     return false;
   }
 };
 
-// Seat layout operations
-export const getSeatLayout = () => {
+// Department operations
+export const getAllDepartments = () => {
   try {
-    const layout = localStorage.getItem(DB_KEYS.SEAT_LAYOUT);
-    return layout ? JSON.parse(layout) : { total: 80, occupied: [], fullTimeSeats: [], halfTimeSeats: [] };
+    const departments = localStorage.getItem(DB_KEYS.DEPARTMENTS);
+    return departments ? JSON.parse(departments) : [];
   } catch (error) {
-    console.error('Error loading seat layout:', error);
-    return { total: 80, occupied: [], fullTimeSeats: [], halfTimeSeats: [] };
+    console.error('Error loading departments:', error);
+    return [];
   }
 };
 
-export const saveSeatLayout = (layout) => {
+export const saveDepartments = (departments) => {
   try {
-    localStorage.setItem(DB_KEYS.SEAT_LAYOUT, JSON.stringify(layout));
+    localStorage.setItem(DB_KEYS.DEPARTMENTS, JSON.stringify(departments));
     return true;
   } catch (error) {
-    console.error('Error saving seat layout:', error);
+    console.error('Error saving departments:', error);
+    return false;
+  }
+};
+
+export const updateDepartmentCount = (departmentName, change) => {
+  try {
+    const departments = getAllDepartments();
+    const dept = departments.find(d => d.name === departmentName);
+    if (dept) {
+      dept.employeeCount += change;
+      saveDepartments(departments);
+    }
+    return true;
+  } catch (error) {
+    console.error('Error updating department count:', error);
     return false;
   }
 };
 
 // Payment operations
-export const addPayment = (studentId, payment) => {
+export const addPayment = (employeeId, payment) => {
   try {
-    const students = getAllStudents();
-    const student = students.find(s => s.id === studentId);
-    if (student) {
+    const employees = getAllEmployees();
+    const employee = employees.find(e => e.id === employeeId);
+    if (employee) {
       const newPayment = {
         ...payment,
-        id: student.paymentHistory.length + 1,
+        id: employee.paymentHistory.length + 1,
         paymentId: payment.paymentId || Date.now(),
-        notes: payment.notes || '',
         timestamp: new Date().toISOString()
       };
       
-      student.paymentHistory.push(newPayment);
-      student.totalPaid += payment.amount;
-      student.feesPaid = true;
-      student.lastFeeDate = payment.date;
-      saveStudents(students);
+      employee.paymentHistory.push(newPayment);
+      employee.totalPaid += payment.netSalary;
+      employee.paymentStatus = "Paid";
+      employee.lastPaymentDate = payment.date;
+      saveEmployees(employees);
       return true;
     }
     return false;
@@ -216,12 +299,16 @@ export const addPayment = (studentId, payment) => {
   }
 };
 
+export const calculateNetSalary = (baseSalary, deductions, bonuses) => {
+  return baseSalary - deductions + bonuses;
+};
+
 // Backup and restore
 export const exportData = () => {
   try {
     const data = {
-      students: getAllStudents(),
-      seatLayout: getSeatLayout(),
+      employees: getAllEmployees(),
+      departments: getAllDepartments(),
       exportDate: new Date().toISOString()
     };
     return JSON.stringify(data, null, 2);
@@ -234,9 +321,9 @@ export const exportData = () => {
 export const importData = (jsonData) => {
   try {
     const data = JSON.parse(jsonData);
-    if (data.students && data.seatLayout) {
-      localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(data.students));
-      localStorage.setItem(DB_KEYS.SEAT_LAYOUT, JSON.stringify(data.seatLayout));
+    if (data.employees && data.departments) {
+      localStorage.setItem(DB_KEYS.EMPLOYEES, JSON.stringify(data.employees));
+      localStorage.setItem(DB_KEYS.DEPARTMENTS, JSON.stringify(data.departments));
       return true;
     }
     return false;
@@ -249,8 +336,8 @@ export const importData = (jsonData) => {
 // Clear all data
 export const clearDatabase = () => {
   try {
-    localStorage.removeItem(DB_KEYS.STUDENTS);
-    localStorage.removeItem(DB_KEYS.SEAT_LAYOUT);
+    localStorage.removeItem(DB_KEYS.EMPLOYEES);
+    localStorage.removeItem(DB_KEYS.DEPARTMENTS);
     localStorage.removeItem(DB_KEYS.PAYMENTS);
     localStorage.removeItem(DB_KEYS.SETTINGS);
     return true;
@@ -263,33 +350,47 @@ export const clearDatabase = () => {
 // Database statistics
 export const getDatabaseStats = () => {
   try {
-    const students = getAllStudents();
-    const layout = getSeatLayout();
+    const employees = getAllEmployees();
+    const departments = getAllDepartments();
     
     // Calculate payment statistics
-    const allPayments = students.flatMap(s => s.paymentHistory || []);
+    const allPayments = employees.flatMap(e => e.paymentHistory || []);
     const totalPayments = allPayments.length;
-    const totalRevenue = students.reduce((sum, s) => sum + s.totalPaid, 0);
+    const totalPaid = employees.reduce((sum, e) => sum + e.totalPaid, 0);
     
     // Monthly payment statistics
-    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const thisMonthPayments = allPayments.filter(p => p.month === currentMonth);
-    const thisMonthRevenue = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    const thisMonthPaid = thisMonthPayments.reduce((sum, p) => sum + p.netSalary, 0);
+    
+    // Pending payments
+    const pendingEmployees = employees.filter(e => e.paymentStatus === 'Pending');
+    const pendingAmount = pendingEmployees.reduce((sum, e) => sum + e.baseSalary, 0);
     
     return {
-      totalStudents: students.length,
-      activeStudents: students.filter(s => s.status === 'Active').length,
-      totalSeats: layout.total,
-      occupiedSeats: layout.occupied.length,
-      availableSeats: layout.total - layout.occupied.length,
-      totalRevenue,
+      totalEmployees: employees.length,
+      activeEmployees: employees.filter(e => e.status === 'Active').length,
+      totalDepartments: departments.length,
+      totalPaid,
       totalPayments,
-      thisMonthRevenue,
+      thisMonthPaid,
       thisMonthPayments: thisMonthPayments.length,
-      pendingFees: students.filter(s => !s.feesPaid).length
+      pendingPayments: pendingEmployees.length,
+      pendingAmount,
+      averageSalary: employees.length > 0 ? Math.round(employees.reduce((sum, e) => sum + e.baseSalary, 0) / employees.length) : 0
     };
   } catch (error) {
     console.error('Error getting database stats:', error);
     return null;
   }
+};
+
+// Generate unique employee ID
+export const generateEmployeeId = () => {
+  const employees = getAllEmployees();
+  const maxId = employees.reduce((max, e) => {
+    const num = parseInt(e.employeeId.replace('EMP', ''));
+    return num > max ? num : max;
+  }, 0);
+  return `EMP${String(maxId + 1).padStart(3, '0')}`;
 };
